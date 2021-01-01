@@ -135,6 +135,9 @@ func (o orientation) String() string {
 	case Booklet:
 		return "booklet"
 
+	case BookletCover:
+		return "booklet cover"
+
 	}
 
 	return ""
@@ -147,6 +150,7 @@ const (
 	LeftDown
 	DownLeft
 	Booklet
+	BookletCover
 )
 
 func parsePageFormatNUp(s string, nup *NUp) (err error) {
@@ -177,8 +181,10 @@ func parseOrientation(s string, nup *NUp) error {
 		nup.Orient = LeftDown
 	case "dl":
 		nup.Orient = DownLeft
-	case "booklet":
+	case "b", "booklet":
 		nup.Orient = Booklet
+	case "bc", "bookletcover":
+		nup.Orient = BookletCover
 	default:
 		return errors.Errorf("pdfcpu: unknown nUp orientation: %s", s)
 	}
@@ -253,7 +259,7 @@ func PDFNUpConfig(val int, desc string) (*NUp, error) {
 			return nil, err
 		}
 	}
-	if nup.Orient == Booklet && !(val == 2 || val == 4) {
+	if (nup.Orient == Booklet || nup.Orient == BookletCover) && !(val == 2 || val == 4) {
 		return nup, errInvalidBookletGrid
 	}
 	return nup, ParseNUpValue(val, nup)
@@ -367,7 +373,7 @@ func rectsForGrid(nup *NUp) []*Rectangle {
 			}
 		}
 
-	case LeftDown:
+	case LeftDown, BookletCover:
 		for i := rows - 1; i >= 0; i-- {
 			for j := cols - 1; j >= 0; j-- {
 				llx = float64(j) * gw
@@ -384,6 +390,9 @@ func rectsForGrid(nup *NUp) []*Rectangle {
 				rr = append(rr, Rect(llx, lly, llx+gw, lly+gh))
 			}
 		}
+
+	default:
+		panic(fmt.Errorf("orientation %s not supported", nup.Orient))
 	}
 
 	return rr
@@ -762,17 +771,17 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 	}
 	sort.Ints(pageNumbers)
 
+	nPages := len(pageNumbers)
+	shouldRotate := make([]bool, nPages)
 	if nup.Orient == Booklet {
 		switch nup.Grid.Height * nup.Grid.Width {
 		case 2:
-			nPages := len(pageNumbers)
 			if nPages%2 != 0 {
 				// nPages must be a multiple of 2
 				// if not, we will insert a blank page at the end
 				nPages++
 			}
 			out := make([]int, nPages)
-			shouldRotate := make([]bool, nPages)
 			// (output page, input page) = [(1,1), (2,n), (3, 2), (4, n-1), (5, 3), (6, n-2), ...]
 			for i := 0; i < nPages; i++ {
 				if i%2 == 0 {
@@ -787,7 +796,6 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 			}
 			return out, shouldRotate
 		case 4:
-			nPages := len(pageNumbers)
 			rem := nPages % 8
 			if rem != 0 {
 				// nPages must be a multiple of 8
@@ -795,7 +803,6 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 				nPages += 8 - rem
 			}
 			out := make([]int, nPages)
-			shouldRotate := make([]bool, nPages)
 			// (output page, input page) = [
 			// (1,n), (2,1), (3, n/2+1), (4, n/2-0),
 			// (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2)
@@ -834,8 +841,26 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 			}
 			return out, shouldRotate
 		}
+	} else if nup.Orient == BookletCover && nup.Grid.Width*nup.Grid.Height == 4 {
+		// we are printing two covers per sheet
+		// covers can have either one (front) or two pages (front and back).
+		// we are using left-down order because (somewhat counter-intuitively), the front cover is on the right of the sheet (and the back on the left, so that fold is in the middle)
+		var out []int
+		// the bottom row should be rotated 180deg so that the cuts are always along the bottom of the booklet
+		// the bottom row is also in the opposite page order
+		switch len(pageNumbers) {
+		case 1:
+			// there is no back of the cover - just skip inserting a page for this space
+			out = []int{1, 0, 0, 1}
+			shouldRotate = append(shouldRotate, []bool{false, true, true}...)
+		case 2:
+			// the cover has a front and back
+			out = []int{1, 2, 2, 1}
+			shouldRotate = append(shouldRotate, []bool{true, true}...)
+		}
+		return out, shouldRotate
 	}
-	return pageNumbers, nil
+	return pageNumbers, shouldRotate
 }
 
 func (ctx *Context) nupPages(selectedPages IntSet, nup *NUp, pagesDict Dict, pagesIndRef *IndirectRef) error {
@@ -844,6 +869,9 @@ func (ctx *Context) nupPages(selectedPages IntSet, nup *NUp, pagesDict Dict, pag
 	formsResDict := NewDict()
 	rr := rectsForGrid(nup)
 
+	if nup.Orient == BookletCover && len(selectedPages) > 2 {
+		return fmt.Errorf("booklet covers must be either one or two pages")
+	}
 	pageNumbers, shouldRotatePage := sortedSelectedPages(selectedPages, nup)
 	for i, p := range pageNumbers {
 
@@ -857,7 +885,7 @@ func (ctx *Context) nupPages(selectedPages IntSet, nup *NUp, pagesDict Dict, pag
 			buf.Reset()
 			formsResDict = NewDict()
 		}
-		if p == 0 && nup.Orient == Booklet {
+		if p == 0 && (nup.Orient == Booklet || nup.Orient == BookletCover) {
 			// this is an empty page at the end of a booklet
 			continue
 		}
@@ -899,7 +927,7 @@ func (ctx *Context) nupPages(selectedPages IntSet, nup *NUp, pagesDict Dict, pag
 		formsResDict.Insert(formResID, *formIndRef)
 
 		// inhPAttrs.mediaBox
-		nUpTilePDFBytes(&buf, cropBox, rr[i%len(rr)], formResID, nup, nup.Orient == Booklet && shouldRotatePage[i])
+		nUpTilePDFBytes(&buf, cropBox, rr[i%len(rr)], formResID, nup, shouldRotatePage[i])
 	}
 
 	// Wrap incomplete nUp page.
