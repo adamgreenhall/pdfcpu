@@ -138,6 +138,9 @@ func (o orientation) String() string {
 	case BookletCover:
 		return "booklet cover"
 
+	case BookletCoverFull:
+		return "booklet cover full"
+
 	}
 
 	return ""
@@ -151,6 +154,7 @@ const (
 	DownLeft
 	Booklet
 	BookletCover
+	BookletCoverFull
 )
 
 func parsePageFormatNUp(s string, nup *NUp) (err error) {
@@ -185,6 +189,8 @@ func parseOrientation(s string, nup *NUp) error {
 		nup.Orient = Booklet
 	case "bc", "bookletcover":
 		nup.Orient = BookletCover
+	case "bcf", "bookletcoverfull":
+		nup.Orient = BookletCoverFull
 	default:
 		return errors.Errorf("pdfcpu: unknown nUp orientation: %s", s)
 	}
@@ -261,6 +267,9 @@ func PDFNUpConfig(val int, desc string) (*NUp, error) {
 	}
 	if (nup.Orient == Booklet || nup.Orient == BookletCover) && !(val == 2 || val == 4) {
 		return nup, errInvalidBookletGrid
+	}
+	if nup.Orient == BookletCoverFull && val != 2 {
+		return nup, errors.New("pdfcpu: nup: for booklet cover full, n must be 2")
 	}
 	return nup, ParseNUpValue(val, nup)
 }
@@ -355,7 +364,7 @@ func rectsForGrid(nup *NUp) []*Rectangle {
 
 	switch nup.Orient {
 
-	case RightDown, Booklet:
+	case RightDown, Booklet, BookletCoverFull:
 		for i := rows - 1; i >= 0; i-- {
 			for j := 0; j < cols; j++ {
 				llx = float64(j) * gw
@@ -859,6 +868,13 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 			shouldRotate = append(shouldRotate, []bool{true, true}...)
 		}
 		return out, shouldRotate
+	} else if nup.Orient == BookletCoverFull && nup.Grid.Width*nup.Grid.Height == 2 {
+		// we are printing two covers per sheet. full covers have just one pdf page, that spans front and back of the booklet
+		// the bottom row should be rotated 180deg so that the cuts are always along the bottom of the booklet
+		var out []int
+		out = []int{1, 1}
+		shouldRotate = append(shouldRotate, true)
+		return out, shouldRotate
 	}
 	return pageNumbers, shouldRotate
 }
@@ -871,6 +887,9 @@ func (ctx *Context) nupPages(selectedPages IntSet, nup *NUp, pagesDict Dict, pag
 
 	if nup.Orient == BookletCover && len(selectedPages) > 2 {
 		return fmt.Errorf("booklet covers must be either one or two pages")
+	}
+	if nup.Orient == BookletCoverFull && len(selectedPages) != 1 {
+		return fmt.Errorf("booklet cover full input must have just one page")
 	}
 	pageNumbers, shouldRotatePage := sortedSelectedPages(selectedPages, nup)
 	for i, p := range pageNumbers {
