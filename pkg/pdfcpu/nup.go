@@ -142,7 +142,7 @@ const (
 	DownRight
 	LeftDown
 	DownLeft
-	bookletOrient
+	bookletOrient // this is not an option that can be used from the cli - use pdfcpu booklet command instead
 )
 
 func parsePageFormatNUp(s string, nup *NUp) (err error) {
