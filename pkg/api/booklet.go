@@ -65,7 +65,7 @@ func Booklet(rs io.ReadSeeker, w io.Writer, selectedPages []string, booklet *pdf
 	if conf == nil {
 		conf = pdfcpu.NewDefaultConfiguration()
 	}
-	conf.Cmd = pdfcpu.NUP // TODO
+	conf.Cmd = pdfcpu.BOOKLET
 
 	log.Info.Printf("%s", booklet)
 
