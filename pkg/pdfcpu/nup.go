@@ -792,30 +792,30 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 			// (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2)
 			// ...]
 			for i := 0; i < len(pageNumbers); i++ {
-				bookletOrientPageNumber := i / 4
-				if bookletOrientPageNumber%2 == 0 {
+				bookletPageNumber := i / 4
+				if bookletPageNumber%2 == 0 {
 					// front side
 					switch i % 4 {
 					case 0:
-						out[i] = getPageNumber(pageNumbers, nPages-1-bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, nPages-1-bookletPageNumber)
 					case 1:
-						out[i] = getPageNumber(pageNumbers, bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, bookletPageNumber)
 					case 2:
-						out[i] = getPageNumber(pageNumbers, nPages/2+bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, nPages/2+bookletPageNumber)
 					case 3:
-						out[i] = getPageNumber(pageNumbers, nPages/2-1-bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, nPages/2-1-bookletPageNumber)
 					}
 				} else {
 					// back side
 					switch i % 4 {
 					case 0:
-						out[i] = getPageNumber(pageNumbers, bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, bookletPageNumber)
 					case 1:
-						out[i] = getPageNumber(pageNumbers, nPages-1-bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, nPages-1-bookletPageNumber)
 					case 2:
-						out[i] = getPageNumber(pageNumbers, nPages/2-1-bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, nPages/2-1-bookletPageNumber)
 					case 3:
-						out[i] = getPageNumber(pageNumbers, nPages/2+bookletOrientPageNumber)
+						out[i] = getPageNumber(pageNumbers, nPages/2+bookletPageNumber)
 					}
 				}
 				if i%4 >= 2 {
