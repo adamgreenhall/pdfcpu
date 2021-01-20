@@ -738,7 +738,7 @@ func NUpFromMultipleImages(ctx *Context, fileNames []string, nup *NUp, pagesDict
 
 func getPageNumber(pageNumbers []int, n int) int {
 	if n >= len(pageNumbers) {
-		// zero represents blank page at end
+		// zero represents blank page at end of booklet
 		return 0
 	}
 	return pageNumbers[n]
