@@ -791,14 +791,14 @@ func sortedSelectedPages(pages IntSet, nup *NUp) ([]int, []bool) {
 				nPages++
 			}
 			out := make([]int, nPages)
-			// (output page, input page) = [(1,1), (2,n), (3, 2), (4, n-1), (5, 3), (6, n-2), ...]
+			// (output page, input page) = [(1,n), (2,1), (3, n-1), (4, 2), (5, n-2), (6, 3), ...]
 			for i := 0; i < nPages; i++ {
 				if i%2 == 0 {
-					out[i] = getPageNumber(pageNumbers, i/2)
+					out[i] = getPageNumber(pageNumbers, nPages-1-i/2)
 				} else {
-					out[i] = getPageNumber(pageNumbers, nPages-1-(i-1)/2)
+					out[i] = getPageNumber(pageNumbers, (i-1)/2)
 				}
-				// odd output pages should be upside-down
+				// odd output sheet sides (the back sides) should be upside-down
 				if i%4 < 2 {
 					shouldRotate[i] = true
 				}
