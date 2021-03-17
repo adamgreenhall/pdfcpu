@@ -62,6 +62,8 @@ var nupParamMap = nUpParamMap{
 	"backgroundcolor": parseSheetBackgroundColor,
 	"bgcolor":         parseSheetBackgroundColor,
 	"guides":          parseBookletGuides,
+	"multifolio":      parseBookletMultifolio,
+	"foliosize":       parseBookletFolioSize,
 	"btype":           parseBookletType,
 }
 
@@ -99,7 +101,9 @@ type NUp struct {
 	ImgInputFile  bool         // Process image or PDF input files.
 	Margin        int          // Cropbox for n-Up content.
 	Border        bool         // Draw bounding box.
-	BookletGuides bool         // Draw folding and cutting lines
+	BookletGuides bool         // Draw folding and cutting lines.
+	MultiFolio    bool         // Render booklet as sequence of folios.
+	FolioSize     int          // Booklet multifolio folio size: default: 8
 	BookletType   bookletType  // Is this a booklet or booklet cover layout
 	InpUnit       DisplayUnit  // input display unit.
 	BgColor       *SimpleColor // background color
@@ -216,6 +220,29 @@ func parseBookletGuides(s string, nup *NUp) error {
 	return nil
 }
 
+func parseBookletMultifolio(s string, nup *NUp) error {
+	switch strings.ToLower(s) {
+	case "on", "true", "t":
+		nup.MultiFolio = true
+	case "off", "false", "f":
+		nup.MultiFolio = false
+	default:
+		return errors.New("pdfcpu: booklet guides, please provide one of: on/off true/false t/f")
+	}
+
+	return nil
+}
+
+func parseBookletFolioSize(s string, nup *NUp) error {
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		return errors.Errorf("pdfcpu: illegal folio size: must be an numeric value, %s\n", s)
+	}
+
+	nup.FolioSize = i
+	return nil
+}
+
 func parseBookletType(s string, nup *NUp) error {
 	switch strings.ToLower(s) {
 	case "booklet":
@@ -224,10 +251,8 @@ func parseBookletType(s string, nup *NUp) error {
 		nup.BookletType = BookletCover
 	case "coverfullspan":
 		nup.BookletType = BookletCoverFullSpan
-	default:
-		return errors.New("pdfcpu: booklet type, please provide one of: booklet cover coverfullspan")
 	}
-	return nil
+	return errors.New("pdfcpu: booklet type, please provide one of: booklet cover coverfullspan")
 }
 
 func parseElementMargin(s string, nup *NUp) error {
