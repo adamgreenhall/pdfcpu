@@ -62,6 +62,7 @@ var nupParamMap = nUpParamMap{
 	"backgroundcolor": parseSheetBackgroundColor,
 	"bgcolor":         parseSheetBackgroundColor,
 	"guides":          parseBookletGuides,
+	"btype":           parseBookletType,
 }
 
 // Handle applies parameter completion and if successful
@@ -99,6 +100,7 @@ type NUp struct {
 	Margin        int          // Cropbox for n-Up content.
 	Border        bool         // Draw bounding box.
 	BookletGuides bool         // Draw folding and cutting lines
+	BookletType   bookletType  // Is this a booklet or booklet cover layout
 	InpUnit       DisplayUnit  // input display unit.
 	BgColor       *SimpleColor // background color
 }
@@ -211,6 +213,20 @@ func parseBookletGuides(s string, nup *NUp) error {
 		return errors.New("pdfcpu: booklet guides, please provide one of: on/off true/false")
 	}
 
+	return nil
+}
+
+func parseBookletType(s string, nup *NUp) error {
+	switch strings.ToLower(s) {
+	case "booklet":
+		nup.BookletType = Booklet
+	case "cover":
+		nup.BookletType = BookletCover
+	case "coverfullspan":
+		nup.BookletType = BookletCoverFullSpan
+	default:
+		return errors.New("pdfcpu: booklet type, please provide one of: booklet cover coverfullspan")
+	}
 	return nil
 }
 
