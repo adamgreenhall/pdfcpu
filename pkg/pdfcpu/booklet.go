@@ -168,7 +168,7 @@ func drawBookletGuides(nup *NUp, w io.Writer) FontMap {
 		// Draw horizontal cutting line.
 		fmt.Fprint(w, "[3] 0 d ")
 		DrawLine(w, 0, height/2, width, height/2)
-		drawGuideLineLabel(w, width, height/2+2, "Fold & Cut here", mb, fm, 0)
+		drawGuideLineLabel(w, width, height/2+2, "Cut here", mb, fm, 0)
 
 		// Draw scissors over cutting line.
 		drawScissor(w, mb, fm)
