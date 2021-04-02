@@ -251,8 +251,10 @@ func parseBookletType(s string, nup *NUp) error {
 		nup.BookletType = BookletCover
 	case "coverfullspan":
 		nup.BookletType = BookletCoverFullSpan
+	default:
+		return errors.New("pdfcpu: booklet type, please provide one of: booklet cover coverfullspan")
 	}
-	return errors.New("pdfcpu: booklet type, please provide one of: booklet cover coverfullspan")
+	return nil
 }
 
 func parseElementMargin(s string, nup *NUp) error {
