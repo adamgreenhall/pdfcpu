@@ -32,6 +32,8 @@ func (b bookletType) String() string {
 
 	case Booklet:
 		return "booklet"
+	case BookletTopFold:
+		return "booklet top fold"
 
 	case BookletCover:
 		return "booklet cover"
@@ -47,6 +49,7 @@ func (b bookletType) String() string {
 // These are the types of booklet layouts
 const (
 	Booklet bookletType = iota
+	BookletTopFold
 	BookletCover
 	BookletCoverFullSpan
 )
@@ -80,6 +83,9 @@ func PDFBookletConfig(val int, desc string) (*NUp, error) {
 		return nil, err
 	}
 	if nup.BookletType == Booklet && !(val == 2 || val == 4) {
+		return nup, errInvalidBookletGridID
+	}
+	if (nup.BookletType == BookletTopFold) && val != 4 {
 		return nup, errInvalidBookletGridID
 	}
 	if nup.BookletType == BookletCover && !(val == 2 || val == 4) {
@@ -237,6 +243,44 @@ func nup4OutputPageNr(inputPageNr int, inputPageCount int, pageNumbers []int) (i
 	return pageNr, rotate
 }
 
+func nup4TopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int) (int, bool) {
+	var p int
+	bookletSheetSideNumber := positionNumber / 4
+	bookletSheetNumber := positionNumber / 8
+	if bookletSheetSideNumber%2 == 0 {
+		// front side
+		switch positionNumber % 4 {
+		case 0:
+			p = inputPageCount - 4*bookletSheetNumber
+		case 1:
+			p = 3 + 4*bookletSheetNumber
+		case 2:
+			p = 1 + 4*bookletSheetNumber
+		case 3:
+			p = inputPageCount - 2 - 4*bookletSheetNumber
+		}
+	} else {
+		// back side
+		switch positionNumber % 4 {
+		case 0:
+			p = 4 + 4*bookletSheetNumber
+		case 1:
+			p = inputPageCount - 1 - 4*bookletSheetNumber
+		case 2:
+			p = inputPageCount - 3 - 4*bookletSheetNumber
+		case 3:
+			p = 2 + 4*bookletSheetNumber
+		}
+	}
+	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
+	// Rotate right side of output page by 180 degrees.
+	var rotate bool
+	if positionNumber%2 == 1 {
+		rotate = true
+	}
+	return pageNr, rotate
+}
+
 func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 	pageNumbers := sortSelectedPages(pages)
 	pageCount := len(pageNumbers)
@@ -267,6 +311,15 @@ func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 			// (output page, input page) = [(1,n), (2,1), (3, n/2+1), (4, n/2-0), (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2) ...]
 			for i := 0; i < pageCount; i++ {
 				pageNr, rotate := nup4OutputPageNr(i, pageCount, pageNumbers)
+				bookletPages[i].number = pageNr
+				bookletPages[i].rotate = rotate
+			}
+		}
+	case BookletTopFold:
+		switch nup.N() {
+		case 4:
+			for i := 0; i < pageCount; i++ {
+				pageNr, rotate := nup4TopFoldOutputPageNr(i, pageCount, pageNumbers)
 				bookletPages[i].number = pageNr
 				bookletPages[i].rotate = rotate
 			}

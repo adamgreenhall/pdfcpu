@@ -247,6 +247,8 @@ func parseBookletType(s string, nup *NUp) error {
 	switch strings.ToLower(s) {
 	case "booklet":
 		nup.BookletType = Booklet
+	case "booklet-topfold":
+		nup.BookletType = BookletTopFold
 	case "cover":
 		nup.BookletType = BookletCover
 	case "coverfullspan":
