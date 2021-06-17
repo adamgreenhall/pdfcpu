@@ -127,7 +127,7 @@ func drawGuideLineLabel(w io.Writer, x, y float64, s string, mb *Rectangle, fm F
 	WriteMultiLine(w, mb, nil, td)
 }
 
-func drawScissor(w io.Writer, mb *Rectangle, fm FontMap) {
+func drawScissors(w io.Writer, mb *Rectangle, fm FontMap) {
 	fontName := "ZapfDingbats"
 	td := TextDescriptor{
 		FontName:  fontName,
@@ -171,7 +171,7 @@ func drawBookletGuides(nup *NUp, w io.Writer) FontMap {
 		drawGuideLineLabel(w, width, height/2+2, "Cut here", mb, fm, 0)
 
 		// Draw scissors over cutting line.
-		drawScissor(w, mb, fm)
+		drawScissors(w, mb, fm)
 	}
 
 	return fm

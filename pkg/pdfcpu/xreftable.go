@@ -61,7 +61,6 @@ func NewXRefTableEntryGen0(obj Object) *XRefTableEntry {
 func NewFreeHeadXRefTableEntry() *XRefTableEntry {
 
 	freeHeadGeneration := FreeHeadGeneration
-	zero := int64(0)
 
 	return &XRefTableEntry{
 		Free:       true,
@@ -126,15 +125,19 @@ type XRefTable struct {
 	Tagged bool // File is using tags. This is important for ???
 
 	// Validation
-	Valid          bool // true means successful validated against ISO 32000.
-	ValidationMode int  // see Configuration
+	CurPage        int                       // current page during validation
+	CurObj         int                       // current object during validation, the last dereferenced object
+	ValidationMode int                       // see Configuration
+	ValidateLinks  bool                      // check for broken links in LinkAnnotations/URIDicts.
+	Valid          bool                      // true means successful validated against ISO 32000.
+	URIs           map[int]map[string]string // URIs for link checking
 
 	Optimized   bool
 	Watermarked bool
 }
 
 // NewXRefTable creates a new XRefTable.
-func newXRefTable(validationMode int) (xRefTable *XRefTable) {
+func newXRefTable(validationMode int, validateLinks bool) (xRefTable *XRefTable) {
 	return &XRefTable{
 		Table:             map[int]*XRefTableEntry{},
 		Names:             map[string]*Node{},
@@ -142,6 +145,8 @@ func newXRefTable(validationMode int) (xRefTable *XRefTable) {
 		LinearizationObjs: IntSet{},
 		Stats:             NewPDFStats(),
 		ValidationMode:    validationMode,
+		ValidateLinks:     validateLinks,
+		URIs:              map[int]map[string]string{},
 	}
 }
 
@@ -246,7 +251,7 @@ func (xRefTable *XRefTable) FindObject(objNr int) (Object, error) {
 func (xRefTable *XRefTable) Free(objNr int) (*XRefTableEntry, error) {
 	entry, found := xRefTable.Find(objNr)
 	if !found {
-		return nil, nil //errors.Errorf("Free: object #%d not found.", objNr)
+		return nil, nil
 	}
 	if !entry.Free {
 		return nil, errors.Errorf("Free: object #%d found, but not free.", objNr)
@@ -500,11 +505,10 @@ func (xRefTable *XRefTable) NewFileSpecDict(f, uf, desc string, indRefStreamDict
 }
 
 func (xRefTable *XRefTable) freeObjects() IntSet {
-
 	m := IntSet{}
 
 	for k, v := range xRefTable.Table {
-		if v.Free && k > 0 {
+		if v != nil && v.Free && k > 0 {
 			m[k] = true
 		}
 	}
@@ -515,21 +519,15 @@ func (xRefTable *XRefTable) freeObjects() IntSet {
 // EnsureValidFreeList ensures the integrity of the free list associated with the recorded free objects.
 // See 7.5.4 Cross-Reference Table
 func (xRefTable *XRefTable) EnsureValidFreeList() error {
-
 	log.Trace.Println("EnsureValidFreeList begin")
 
 	m := xRefTable.freeObjects()
 
 	// Verify free object 0 as free list head.
-	head, err := xRefTable.Free(0)
-	if err != nil {
-		return err
-	}
-
+	head, _ := xRefTable.Find(0)
 	if head == nil {
 		g0 := FreeHeadGeneration
-		z := int64(0)
-		head = &XRefTableEntry{Free: true, Offset: &z, Generation: &g0}
+		head = &XRefTableEntry{Free: true, Offset: &zero, Generation: &g0}
 		xRefTable.Table[0] = head
 	}
 
@@ -571,7 +569,7 @@ func (xRefTable *XRefTable) EnsureValidFreeList() error {
 
 		delete(m, f)
 
-		e, err = xRefTable.Free(f)
+		e, err := xRefTable.Free(f)
 		if err != nil {
 			return err
 		}
@@ -599,7 +597,6 @@ func (xRefTable *XRefTable) EnsureValidFreeList() error {
 		}
 
 		if *entry.Generation == FreeHeadGeneration {
-			zero := int64(0)
 			entry.Offset = &zero
 			continue
 		}
@@ -806,6 +803,8 @@ func (xRefTable *XRefTable) indRefToObject(ir *IndirectRef) (Object, error) {
 		return nil, nil
 	}
 
+	xRefTable.CurObj = int(ir.ObjectNumber)
+
 	// return dereferenced object
 	return entry.Object, nil
 }
@@ -924,7 +923,7 @@ func (xRefTable *XRefTable) DereferenceStringLiteral(o Object, sinceVersion Vers
 	}
 
 	// Ensure UTF16 correctness.
-	s1, err := StringLiteralToString(s.Value())
+	s1, err := StringLiteralToString(s)
 	if err != nil {
 		return s, err
 	}
@@ -954,18 +953,18 @@ func (xRefTable *XRefTable) DereferenceStringOrHexLiteral(obj Object, sinceVersi
 
 	case StringLiteral:
 		// Ensure UTF16 correctness.
-		if s, err = StringLiteralToString(str.Value()); err != nil {
+		if s, err = StringLiteralToString(str); err != nil {
 			return "", err
 		}
 
 	case HexLiteral:
 		// Ensure UTF16 correctness.
-		if s, err = HexLiteralToString(str.Value()); err != nil {
+		if s, err = HexLiteralToString(str); err != nil {
 			return "", err
 		}
 
 	default:
-		return "", errors.Errorf("pdfcpu: dereferenceStringOrHexLiteral: wrong type <%v>", obj)
+		return "", errors.Errorf("pdfcpu: dereferenceStringOrHexLiteral: wrong type %T", obj)
 
 	}
 
@@ -986,9 +985,9 @@ func (xRefTable *XRefTable) DereferenceStringOrHexLiteral(obj Object, sinceVersi
 func Text(o Object) (string, error) {
 	switch obj := o.(type) {
 	case StringLiteral:
-		return StringLiteralToString(obj.Value())
+		return StringLiteralToString(obj)
 	case HexLiteral:
-		return HexLiteralToString(obj.Value())
+		return HexLiteralToString(obj)
 	default:
 		return "", errors.Errorf("pdfcpu: text: corrupt -  %v\n", obj)
 	}
@@ -1632,7 +1631,8 @@ func (xRefTable *XRefTable) IDFirstElement() (id []byte, err error) {
 		return nil, errors.New("pdfcpu: ID must contain hex literals or string literals")
 	}
 
-	return Unescape(sl.Value())
+	//return Unescape(sl.Value())
+	return []byte(sl), nil
 }
 
 // InheritedPageAttrs represents all inherited page attributes.

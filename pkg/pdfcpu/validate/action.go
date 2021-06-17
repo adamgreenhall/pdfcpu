@@ -17,6 +17,8 @@ limitations under the License.
 package validate
 
 import (
+	"strings"
+
 	pdf "github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/pkg/errors"
 )
@@ -24,9 +26,13 @@ import (
 func validateGoToActionDict(xRefTable *pdf.XRefTable, d pdf.Dict, dictName string) error {
 
 	// see 12.6.4.2 Go-To Actions
+	required := REQUIRED
+	if xRefTable.ValidationMode == pdf.ValidationRelaxed {
+		required = OPTIONAL
+	}
 
 	// D, required, name, byte string or array
-	return validateDestinationEntry(xRefTable, d, dictName, "D", REQUIRED, pdf.V10)
+	return validateDestinationEntry(xRefTable, d, dictName, "D", required, pdf.V10)
 }
 
 func validateGoToRActionDict(xRefTable *pdf.XRefTable, d pdf.Dict, dictName string) error {
@@ -237,14 +243,34 @@ func validateThreadActionDict(xRefTable *pdf.XRefTable, d pdf.Dict, dictName str
 	return validateDestinationBeadEntry(xRefTable, d, dictName, "B", OPTIONAL, pdf.V10)
 }
 
+func hasURIForChecking(xRefTable *pdf.XRefTable, s string) bool {
+	for _, links := range xRefTable.URIs {
+		for uri := range links {
+			if uri == s {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func validateURIActionDict(xRefTable *pdf.XRefTable, d pdf.Dict, dictName string) error {
 
 	// see 12.6.4.7
 
 	// URI, required, string
-	_, err := validateStringEntry(xRefTable, d, dictName, "URI", REQUIRED, pdf.V10, nil)
+	uri, err := validateStringEntry(xRefTable, d, dictName, "URI", REQUIRED, pdf.V10, nil)
 	if err != nil {
 		return err
+	}
+
+	// Record URIs for link checking.
+	if xRefTable.ValidateLinks && uri != nil &&
+		strings.HasPrefix(*uri, "http") && !hasURIForChecking(xRefTable, *uri) {
+		if len(xRefTable.URIs[xRefTable.CurPage]) == 0 {
+			xRefTable.URIs[xRefTable.CurPage] = map[string]string{}
+		}
+		xRefTable.URIs[xRefTable.CurPage][*uri] = ""
 	}
 
 	// IsMap, optional, boolean
@@ -451,7 +477,7 @@ func validateHideActionDictEntryT(xRefTable *pdf.XRefTable, o pdf.Object) error 
 
 	case pdf.StringLiteral:
 		// Ensure UTF16 correctness.
-		_, err := pdf.StringLiteralToString(o.Value())
+		_, err := pdf.StringLiteralToString(o)
 		if err != nil {
 			return err
 		}
@@ -480,7 +506,7 @@ func validateHideActionDictEntryT(xRefTable *pdf.XRefTable, o pdf.Object) error 
 
 			case pdf.StringLiteral:
 				// Ensure UTF16 correctness.
-				_, err = pdf.StringLiteralToString(o.Value())
+				_, err = pdf.StringLiteralToString(o)
 				if err != nil {
 					return err
 				}
@@ -638,11 +664,11 @@ func validateJavaScript(xRefTable *pdf.XRefTable, d pdf.Dict, dictName, entryNam
 
 	case pdf.StringLiteral:
 		// Ensure UTF16 correctness.
-		_, err = pdf.StringLiteralToString(o.Value())
+		_, err = pdf.StringLiteralToString(o)
 
 	case pdf.HexLiteral:
 		// Ensure UTF16 correctness.
-		_, err = pdf.HexLiteralToString(o.Value())
+		_, err = pdf.HexLiteralToString(o)
 
 	case pdf.StreamDict:
 		// no further processing

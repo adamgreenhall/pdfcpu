@@ -523,9 +523,9 @@ func sortedWritableKeys(ctx *Context) []int {
 // After inserting the last object write the cross reference table to disk.
 func writeXRefTable(ctx *Context) error {
 
-	if err := ctx.EnsureValidFreeList(); err != nil {
-		return err
-	}
+	//if err := ctx.EnsureValidFreeList(); err != nil {
+	//	return err
+	//}
 
 	keys := sortedWritableKeys(ctx)
 
@@ -719,9 +719,9 @@ func writeXRefStream(ctx *Context) error {
 	}
 
 	// After the last insert of an object.
-	if err = xRefTable.EnsureValidFreeList(); err != nil {
-		return err
-	}
+	//if err = xRefTable.EnsureValidFreeList(); err != nil {
+	//	return err
+	//}
 
 	xRefStreamDict.Insert("Size", Integer(*xRefTable.Size))
 
@@ -833,12 +833,9 @@ func setupEncryption(ctx *Context) error {
 		return errors.New("pdfcpu: encrypt: missing ID")
 	}
 
-	var id []byte
-	if id, err = ctx.IDFirstElement(); err != nil {
+	if ctx.E.ID, err = ctx.IDFirstElement(); err != nil {
 		return err
 	}
-
-	ctx.E.ID = id
 
 	if err = calcOAndU(ctx, d); err != nil {
 		return err

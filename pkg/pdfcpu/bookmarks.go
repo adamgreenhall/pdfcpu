@@ -92,6 +92,39 @@ func outlineItemTitle(s string) string {
 	return sb.String()
 }
 
+// PageObjFromDestinationArray return an IndirectRef for this destinations page object.
+func (ctx *Context) PageObjFromDestinationArray(dest Object) (*IndirectRef, error) {
+	var (
+		err error
+		ir  IndirectRef
+		arr Array
+	)
+	switch dest := dest.(type) {
+	case Name:
+		arr, err = ctx.dereferenceDestinationArray(dest.Value())
+		if err == nil {
+			ir = arr[0].(IndirectRef)
+		}
+	case StringLiteral:
+		arr, err = ctx.dereferenceDestinationArray(dest.Value())
+		if err == nil {
+			ir = arr[0].(IndirectRef)
+		}
+	case HexLiteral:
+		arr, err = ctx.dereferenceDestinationArray(dest.Value())
+		if err == nil {
+			ir = arr[0].(IndirectRef)
+		}
+	case Array:
+		if dest[0] != nil {
+			ir = dest[0].(IndirectRef)
+		} else {
+			// Skipping bookmarks that don't point to anything.
+		}
+	}
+	return &ir, err
+}
+
 // BookmarksForOutlineItem returns the bookmarks tree for an outline item.
 func (ctx *Context) BookmarksForOutlineItem(item *IndirectRef, parent *Bookmark) ([]Bookmark, error) {
 	bms := []Bookmark{}
@@ -126,36 +159,14 @@ func (ctx *Context) BookmarksForOutlineItem(item *IndirectRef, parent *Bookmark)
 			dest, _ = act.(Dict)["D"]
 		}
 
-		var ir IndirectRef
-
 		dest, _ = ctx.Dereference(dest)
 
-		switch dest := dest.(type) {
-		case Name:
-			arr, err := ctx.dereferenceDestinationArray(dest.Value())
-			if err != nil {
-				return nil, err
-			}
-			ir = arr[0].(IndirectRef)
-		case StringLiteral:
-			arr, err := ctx.dereferenceDestinationArray(dest.Value())
-			if err != nil {
-				return nil, err
-			}
-			ir = arr[0].(IndirectRef)
-		case HexLiteral:
-			arr, err := ctx.dereferenceDestinationArray(dest.Value())
-			if err != nil {
-				return nil, err
-			}
-			ir = arr[0].(IndirectRef)
-		case Array:
-			if dest[0] != nil {
-				ir = dest[0].(IndirectRef)
-			} else {
-				// Skipping bookmarks that don't point to anything.
-				continue
-			}
+		ir, err := ctx.PageObjFromDestinationArray(dest)
+		if err != nil {
+			return nil, err
+		}
+		if ir == nil {
+			continue
 		}
 
 		pageFrom, err := ctx.PageNumber(ir.ObjectNumber.Value())

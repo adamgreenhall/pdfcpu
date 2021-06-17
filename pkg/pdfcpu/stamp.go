@@ -114,6 +114,7 @@ var wmParamMap = watermarkParamMap{
 	"points":          parseFontSize,
 	"position":        parsePositionAnchorWM,
 	"rendermode":      parseRenderMode,
+	"rtl":             parseRightToLeft,
 	"rotation":        parseRotation,
 	"scalefactor":     parseScaleFactorWM,
 	"strokecolor":     parseStrokeColor,
@@ -168,6 +169,7 @@ type Watermark struct {
 	FontName          string        // supported are Adobe base fonts only. (as of now: Helvetica, Times-Roman, Courier)
 	FontSize          int           // font scaling factor.
 	ScaledFontSize    int           // font scaling factor for a specific page
+	RTL               bool          // if true, render text from right to left
 	Color             SimpleColor   // text fill color(=non stroking color) for backwards compatibility.
 	FillColor         SimpleColor   // text fill color(=non stroking color).
 	StrokeColor       SimpleColor   // text stroking color
@@ -214,6 +216,7 @@ func DefaultWatermarkConfig() *Watermark {
 		Page:        0,
 		FontName:    "Helvetica",
 		FontSize:    24,
+		RTL:         false,
 		Pos:         Center,
 		Scale:       0.5,
 		ScaleAbs:    false,
@@ -483,6 +486,19 @@ func parseScaleFactor(s string) (float64, bool, error) {
 	}
 
 	return sc, scaleAbs, nil
+}
+
+func parseRightToLeft(s string, wm *Watermark) error {
+	switch strings.ToLower(s) {
+	case "on", "true", "t":
+		wm.RTL = true
+	case "off", "false", "f":
+		wm.RTL = false
+	default:
+		return errors.New("pdfcpu: rtl (right-to-left), please provide one of: on/off true/false t/f")
+	}
+
+	return nil
 }
 
 func parseHexColor(hexCol string) (SimpleColor, error) {
@@ -1345,6 +1361,9 @@ func setupTextDescriptor(wm *Watermark, pageNr, pageCount int) (TextDescriptor, 
 	td, unique := wm.textDescriptor(pageNr, pageCount)
 	td.X, td.Y, td.HAlign, td.VAlign, td.FontKey = x, y, hAlign, vAlign, "F1"
 
+	// Set right to left rendering.
+	td.RTL = wm.RTL
+
 	// Set margins.
 	td.MLeft = float64(wm.MLeft)
 	td.MRight = float64(wm.MRight)
@@ -1380,20 +1399,22 @@ func drawBoundingBox(b bytes.Buffer, wm *Watermark, bb *Rectangle) {
 	)
 }
 
-func (ctx *Context) createForm(pageNr, pageCount int, wm *Watermark, withBB bool) error {
-	var (
-		b      bytes.Buffer
-		unique bool
-	)
-
+func calcFormBoundingBox(w io.Writer, pageNr, pageCount int, wm *Watermark) bool {
+	var unique bool
 	if wm.isImage() || wm.isPDF() {
 		wm.calcBoundingBox(pageNr)
 	} else {
 		var td TextDescriptor
 		td, unique = setupTextDescriptor(wm, pageNr, pageCount)
 		// Render td into b and return the bounding box.
-		wm.bb = WriteMultiLine(&b, wm.vp, nil, td)
+		wm.bb = WriteMultiLine(w, wm.vp, nil, td)
 	}
+	return unique
+}
+
+func (ctx *Context) createForm(pageNr, pageCount int, wm *Watermark, withBB bool) error {
+	var b bytes.Buffer
+	unique := calcFormBoundingBox(&b, pageNr, pageCount, wm)
 
 	// The forms bounding box is dependent on the page dimensions.
 	bb := wm.bb
@@ -1546,13 +1567,6 @@ func (ctx *Context) insertPageContentsForWM(pageDict Dict, wm *Watermark, gsID, 
 	return nil
 }
 
-func contentBytesForPageRotation(r, dx, dy float64) []byte {
-	m := calcRotateAndTranslateTransformMatrix(r, dx, dy)
-	var b bytes.Buffer
-	fmt.Fprintf(&b, " q %.2f %.2f %.2f %.2f %.2f %.2f cm ", m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
-	return b.Bytes()
-}
-
 func translationForPageRotation(pageRot int, w, h float64) (float64, float64) {
 	var dx, dy float64
 
@@ -1568,7 +1582,15 @@ func translationForPageRotation(pageRot int, w, h float64) (float64, float64) {
 	return dx, dy
 }
 
-func patchFirstContentForWM(sd *StreamDict, gsID, xoID string, wm *Watermark, isLast bool) error {
+func contentBytesForPageRotation(wm *Watermark) []byte {
+	dx, dy := translationForPageRotation(wm.pageRot, wm.vp.Width(), wm.vp.Height())
+	m := calcRotateAndTranslateTransformMatrix(float64(-wm.pageRot), dx, dy)
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "%.2f %.2f %.2f %.2f %.2f %.2f cm ", m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
+	return b.Bytes()
+}
+
+func patchFirstContentStreamForWatermark(sd *StreamDict, gsID, xoID string, wm *Watermark, isLast bool) error {
 	err := sd.Decode()
 	if err == filter.ErrUnsupportedFilter {
 		log.Info.Println("unsupported filter: unable to patch content with watermark.")
@@ -1578,40 +1600,38 @@ func patchFirstContentForWM(sd *StreamDict, gsID, xoID string, wm *Watermark, is
 		return err
 	}
 
-	bb := wmContent(wm, gsID, xoID)
+	wmbb := wmContent(wm, gsID, xoID)
 
+	// stamp
 	if wm.OnTop {
+		bb := []byte(" q ")
 		if wm.pageRot != 0 {
-			dx, dy := translationForPageRotation(wm.pageRot, wm.vp.Width(), wm.vp.Height())
-			sd.Content = append(contentBytesForPageRotation(float64(-wm.pageRot), dx, dy), sd.Content...)
-			if !isLast {
-				return sd.Encode()
-			}
-			sd.Content = append(sd.Content, []byte(" Q")...)
+			bb = append(bb, contentBytesForPageRotation(wm)...)
 		}
-		if isLast {
-			sd.Content = append(sd.Content, bb...)
-			return sd.Encode()
-		}
-		return nil
-	}
-
-	if wm.pageRot != 0 {
-		dx, dy := translationForPageRotation(wm.pageRot, wm.vp.Width(), wm.vp.Height())
-		prbb := contentBytesForPageRotation(float64(-wm.pageRot), dx, dy)
-		bb1 := append(bb, prbb...)
-		sd.Content = append(bb1, sd.Content...)
+		sd.Content = append(bb, sd.Content...)
 		if !isLast {
 			return sd.Encode()
 		}
+		sd.Content = append(sd.Content, []byte(" Q ")...)
+		sd.Content = append(sd.Content, wmbb...)
+		return sd.Encode()
+	}
+
+	// watermark
+	if wm.pageRot == 0 {
+		sd.Content = append(wmbb, sd.Content...)
+		return sd.Encode()
+	}
+
+	bb := append([]byte(" q "), contentBytesForPageRotation(wm)...)
+	sd.Content = append(bb, sd.Content...)
+	if isLast {
 		sd.Content = append(sd.Content, []byte(" Q")...)
-	} else {
-		sd.Content = append(bb, sd.Content...)
 	}
 	return sd.Encode()
 }
 
-func patchLastContentForWM(sd *StreamDict, gsID, xoID string, wm *Watermark) error {
+func patchLastContentStreamForWatermark(sd *StreamDict, gsID, xoID string, wm *Watermark) error {
 	err := sd.Decode()
 	if err == filter.ErrUnsupportedFilter {
 		log.Info.Println("unsupported filter: unable to patch content with watermark.")
@@ -1621,14 +1641,14 @@ func patchLastContentForWM(sd *StreamDict, gsID, xoID string, wm *Watermark) err
 		return err
 	}
 
+	// stamp
 	if wm.OnTop {
-		if wm.pageRot != 0 {
-			sd.Content = append(sd.Content, []byte(" Q")...)
-		}
+		sd.Content = append(sd.Content, []byte(" Q ")...)
 		sd.Content = append(sd.Content, wmContent(wm, gsID, xoID)...)
 		return sd.Encode()
 	}
 
+	// watermark
 	if wm.pageRot != 0 {
 		sd.Content = append(sd.Content, []byte(" Q")...)
 		return sd.Encode()
@@ -1657,7 +1677,7 @@ func (ctx *Context) updatePageContentsForWM(obj Object, wm *Watermark, gsID, xoI
 
 	case StreamDict:
 
-		err := patchFirstContentForWM(&o, gsID, xoID, wm, true)
+		err := patchFirstContentStreamForWatermark(&o, gsID, xoID, wm, true)
 		if err != nil {
 			return err
 		}
@@ -1680,7 +1700,7 @@ func (ctx *Context) updatePageContentsForWM(obj Object, wm *Watermark, gsID, xoI
 			return nil
 		}
 
-		err := patchFirstContentForWM(&sd, gsID, xoID, wm, len(o) == 1)
+		err := patchFirstContentStreamForWatermark(&sd, gsID, xoID, wm, len(o) == 1)
 		if err != nil {
 			return err
 		}
@@ -1705,7 +1725,7 @@ func (ctx *Context) updatePageContentsForWM(obj Object, wm *Watermark, gsID, xoI
 		entry, _ = ctx.FindTableEntry(objNr, genNr)
 		sd, _ = (entry.Object).(StreamDict)
 
-		err = patchLastContentForWM(&sd, gsID, xoID, wm)
+		err = patchLastContentStreamForWatermark(&sd, gsID, xoID, wm)
 		if err != nil {
 			return err
 		}
