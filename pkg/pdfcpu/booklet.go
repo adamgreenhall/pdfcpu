@@ -243,7 +243,7 @@ func nup4OutputPageNr(inputPageNr int, inputPageCount int, pageNumbers []int) (i
 	return pageNr, rotate
 }
 
-func nup4TopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int) (int, bool) {
+func nup4TopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
 	var p int
 	bookletSheetSideNumber := positionNumber / 4
 	bookletSheetNumber := positionNumber / 8
@@ -259,8 +259,8 @@ func nup4TopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers
 		case 3:
 			p = inputPageCount - 2 - 4*bookletSheetNumber
 		}
-	} else {
-		// back side
+	} else if nup.PageDim.Portrait() {
+		// back side (portrait)
 		switch positionNumber % 4 {
 		case 0:
 			p = 4 + 4*bookletSheetNumber
@@ -271,7 +271,21 @@ func nup4TopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers
 		case 3:
 			p = 2 + 4*bookletSheetNumber
 		}
+	} else {
+		// back side (landscape)
+		// landscape long-edge folding back side ordering is rotated 180 degrees from the portrait ordering to make duplexing work
+		switch positionNumber % 4 {
+		case 0:
+			p = 2 + 4*bookletSheetNumber
+		case 1:
+			p = inputPageCount - 3 - 4*bookletSheetNumber
+		case 2:
+			p = inputPageCount - 1 - 4*bookletSheetNumber
+		case 3:
+			p = 4 + 4*bookletSheetNumber
+		}
 	}
+
 	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
 	// Rotate right side of output page by 180 degrees.
 	var rotate bool
@@ -319,7 +333,7 @@ func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 		switch nup.N() {
 		case 4:
 			for i := 0; i < pageCount; i++ {
-				pageNr, rotate := nup4TopFoldOutputPageNr(i, pageCount, pageNumbers)
+				pageNr, rotate := nup4TopFoldOutputPageNr(i, pageCount, pageNumbers, nup)
 				bookletPages[i].number = pageNr
 				bookletPages[i].rotate = rotate
 			}
