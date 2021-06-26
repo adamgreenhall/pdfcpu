@@ -13,6 +13,25 @@ type pageOrderResults struct {
 }
 
 var bookletTestCases = []pageOrderResults{
+	// classic (booklet) test cases
+	{
+		pageCount: 8,
+		expectedPageOrder: []int{
+			8, 1, 5, 4,
+			2, 7, 3, 6,
+		},
+		papersize:   "A5", // portrait, long-edge binding
+		bookletType: "booklet",
+	},
+	{
+		pageCount: 8,
+		expectedPageOrder: []int{
+			8, 1, 5, 4,
+			6, 3, 7, 2, // this is 180degrees flipped from the portrait layout (because of differences in how duplexing works)
+		},
+		papersize:   "A5L", // landscape, short-edge binding
+		bookletType: "booklet",
+	},
 	// topfold test cases
 	{
 		pageCount: 8,
@@ -20,7 +39,7 @@ var bookletTestCases = []pageOrderResults{
 			8, 3, 1, 6,
 			4, 7, 5, 2,
 		},
-		papersize:   "A5",
+		papersize:   "A5", // portrait, short-edge binding
 		bookletType: "booklet-topfold",
 	},
 	{
@@ -29,7 +48,7 @@ var bookletTestCases = []pageOrderResults{
 			8, 3, 1, 6,
 			2, 5, 7, 4,
 		},
-		papersize:   "A5L",
+		papersize:   "A5L", // landscape, long-edge binding
 		bookletType: "booklet-topfold",
 	},
 	{
@@ -40,7 +59,7 @@ var bookletTestCases = []pageOrderResults{
 			12, 7, 5, 10,
 			8, 11, 9, 6,
 		},
-		papersize:   "A5",
+		papersize:   "A5", // portrait, short-edge binding
 		bookletType: "booklet-topfold",
 	},
 }
