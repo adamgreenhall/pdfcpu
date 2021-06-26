@@ -9,16 +9,19 @@ type pageOrderResults struct {
 	pageCount         int
 	expectedPageOrder []int
 	papersize         string
+	bookletType       string
 }
 
-var fourupTopFoldTestCases = []pageOrderResults{
+var bookletTestCases = []pageOrderResults{
+	// topfold test cases
 	{
 		pageCount: 8,
 		expectedPageOrder: []int{
 			8, 3, 1, 6,
 			4, 7, 5, 2,
 		},
-		papersize: "A5",
+		papersize:   "A5",
+		bookletType: "booklet-topfold",
 	},
 	{
 		pageCount: 8,
@@ -26,7 +29,8 @@ var fourupTopFoldTestCases = []pageOrderResults{
 			8, 3, 1, 6,
 			2, 5, 7, 4,
 		},
-		papersize: "A5L",
+		papersize:   "A5L",
+		bookletType: "booklet-topfold",
 	},
 	{
 		pageCount: 16,
@@ -36,25 +40,24 @@ var fourupTopFoldTestCases = []pageOrderResults{
 			12, 7, 5, 10,
 			8, 11, 9, 6,
 		},
-		papersize: "A5",
+		papersize:   "A5",
+		bookletType: "booklet-topfold",
 	},
 }
 
-func TestBookletPageOrder4UpTopFold(t *testing.T) {
-	for _, test := range fourupTopFoldTestCases {
-		nup := DefaultBookletConfig()
-		err := ParseNUpDetails(fmt.Sprintf("papersize:%s", test.papersize), nup)
+func TestBookletPageOrder(t *testing.T) {
+	for _, test := range bookletTestCases {
+		nup, err := PDFBookletConfig(4, fmt.Sprintf("papersize:%s, btype:%s", test.papersize, test.bookletType))
 		if err != nil {
 			t.Fatal(err)
 		}
-		pageNumbers := make([]int, test.pageCount)
+		pageNumbers := make(map[int]bool)
 		for i := 0; i < test.pageCount; i++ {
-			pageNumbers[i] = i + 1
+			pageNumbers[i+1] = true
 		}
 		pageOrder := make([]int, test.pageCount)
-		for i := range pageNumbers {
-			p, _ := nup4TopFoldOutputPageNr(i, test.pageCount, pageNumbers, nup)
-			pageOrder[i] = p
+		for i, p := range sortSelectedPagesForBooklet(pageNumbers, nup) {
+			pageOrder[i] = p.number
 		}
 		for i, expected := range test.expectedPageOrder {
 			if pageOrder[i] != expected {
