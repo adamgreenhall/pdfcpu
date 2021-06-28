@@ -10,6 +10,7 @@ type pageOrderResults struct {
 	expectedPageOrder []int
 	papersize         string
 	bookletType       string
+	binding           string
 }
 
 var bookletTestCases = []pageOrderResults{
@@ -22,6 +23,7 @@ var bookletTestCases = []pageOrderResults{
 		},
 		papersize:   "A5", // portrait, long-edge binding
 		bookletType: "booklet",
+		binding:     "long",
 	},
 	{
 		pageCount: 8,
@@ -31,6 +33,7 @@ var bookletTestCases = []pageOrderResults{
 		},
 		papersize:   "A5L", // landscape, short-edge binding
 		bookletType: "booklet",
+		binding:     "short",
 	},
 	// topfold test cases
 	{
@@ -40,7 +43,8 @@ var bookletTestCases = []pageOrderResults{
 			4, 7, 5, 2,
 		},
 		papersize:   "A5", // portrait, short-edge binding
-		bookletType: "booklet-topfold",
+		bookletType: "booklet",
+		binding:     "short",
 	},
 	{
 		pageCount: 8,
@@ -49,7 +53,8 @@ var bookletTestCases = []pageOrderResults{
 			2, 5, 7, 4,
 		},
 		papersize:   "A5L", // landscape, long-edge binding
-		bookletType: "booklet-topfold",
+		bookletType: "booklet",
+		binding:     "long",
 	},
 	{
 		pageCount: 16,
@@ -60,13 +65,14 @@ var bookletTestCases = []pageOrderResults{
 			8, 11, 9, 6,
 		},
 		papersize:   "A5", // portrait, short-edge binding
-		bookletType: "booklet-topfold",
+		bookletType: "booklet",
+		binding:     "short",
 	},
 }
 
 func TestBookletPageOrder(t *testing.T) {
 	for _, test := range bookletTestCases {
-		nup, err := PDFBookletConfig(4, fmt.Sprintf("papersize:%s, btype:%s", test.papersize, test.bookletType))
+		nup, err := PDFBookletConfig(4, fmt.Sprintf("papersize:%s, btype:%s, binding: %s", test.papersize, test.bookletType, test.binding))
 		if err != nil {
 			t.Fatal(err)
 		}

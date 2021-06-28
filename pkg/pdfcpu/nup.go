@@ -65,6 +65,7 @@ var nupParamMap = nUpParamMap{
 	"multifolio":      parseBookletMultifolio,
 	"foliosize":       parseBookletFolioSize,
 	"btype":           parseBookletType,
+	"binding":         parseBookletBinding,
 }
 
 // Handle applies parameter completion and if successful
@@ -92,21 +93,22 @@ func (m nUpParamMap) Handle(paramPrefix, paramValueStr string, nup *NUp) error {
 
 // NUp represents the command details for the command "NUp".
 type NUp struct {
-	PageDim       *Dim         // Page dimensions in display unit.
-	PageSize      string       // Paper size eg. A4L, A4P, A4(=default=A4P), see paperSize.go
-	UserDim       bool         // true if one of dimensions or paperSize provided overriding the default.
-	Orient        orientation  // One of rd(=default),dr,ld,dl
-	Grid          *Dim         // Intra page grid dimensions eg (2,2)
-	PageGrid      bool         // Create a mxn grid of pages for PDF inputfiles only (think "extra page n-Up").
-	ImgInputFile  bool         // Process image or PDF input files.
-	Margin        int          // Cropbox for n-Up content.
-	Border        bool         // Draw bounding box.
-	BookletGuides bool         // Draw folding and cutting lines.
-	MultiFolio    bool         // Render booklet as sequence of folios.
-	FolioSize     int          // Booklet multifolio folio size: default: 8
-	BookletType   bookletType  // Is this a booklet or booklet cover layout
-	InpUnit       DisplayUnit  // input display unit.
-	BgColor       *SimpleColor // background color
+	PageDim        *Dim           // Page dimensions in display unit.
+	PageSize       string         // Paper size eg. A4L, A4P, A4(=default=A4P), see paperSize.go
+	UserDim        bool           // true if one of dimensions or paperSize provided overriding the default.
+	Orient         orientation    // One of rd(=default),dr,ld,dl
+	Grid           *Dim           // Intra page grid dimensions eg (2,2)
+	PageGrid       bool           // Create a mxn grid of pages for PDF inputfiles only (think "extra page n-Up").
+	ImgInputFile   bool           // Process image or PDF input files.
+	Margin         int            // Cropbox for n-Up content.
+	Border         bool           // Draw bounding box.
+	BookletGuides  bool           // Draw folding and cutting lines.
+	MultiFolio     bool           // Render booklet as sequence of folios.
+	FolioSize      int            // Booklet multifolio folio size: default: 8
+	BookletType    bookletType    // Is this a booklet or booklet cover layout
+	BookletBinding bookletBinding // Does the booklet have short or long-edge binding
+	InpUnit        DisplayUnit    // input display unit.
+	BgColor        *SimpleColor   // background color
 }
 
 // DefaultNUpConfig returns the default NUp configuration.
@@ -127,6 +129,10 @@ func (nup NUp) String() string {
 // N returns the nUp value.
 func (nup NUp) N() int {
 	return int(nup.Grid.Height * nup.Grid.Width)
+}
+
+func (nup NUp) isTopFoldBinding() bool {
+	return (nup.PageDim.Portrait() && nup.BookletBinding == shortEdge) || (nup.PageDim.Landscape() && nup.BookletBinding == longEdge)
 }
 
 type orientation int
@@ -247,14 +253,24 @@ func parseBookletType(s string, nup *NUp) error {
 	switch strings.ToLower(s) {
 	case "booklet":
 		nup.BookletType = Booklet
-	case "booklet-topfold":
-		nup.BookletType = BookletTopFold
 	case "cover":
 		nup.BookletType = BookletCover
 	case "coverfullspan":
 		nup.BookletType = BookletCoverFullSpan
 	default:
 		return errors.New("pdfcpu: booklet type, please provide one of: booklet cover coverfullspan")
+	}
+	return nil
+}
+
+func parseBookletBinding(s string, nup *NUp) error {
+	switch strings.ToLower(s) {
+	case "short":
+		nup.BookletBinding = shortEdge
+	case "long":
+		nup.BookletBinding = longEdge
+	default:
+		return errors.New("pdfcpu: booklet binding, please provide one of: short long")
 	}
 	return nil
 }

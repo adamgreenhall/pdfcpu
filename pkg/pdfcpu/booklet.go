@@ -27,13 +27,18 @@ import (
 
 type bookletType int
 
+// These are the types of booklet layouts
+const (
+	Booklet bookletType = iota
+	BookletCover
+	BookletCoverFullSpan
+)
+
 func (b bookletType) String() string {
 	switch b {
 
 	case Booklet:
 		return "booklet"
-	case BookletTopFold:
-		return "booklet top fold"
 
 	case BookletCover:
 		return "booklet cover"
@@ -46,13 +51,22 @@ func (b bookletType) String() string {
 	return ""
 }
 
-// These are the types of booklet layouts
+type bookletBinding int
+
 const (
-	Booklet bookletType = iota
-	BookletTopFold
-	BookletCover
-	BookletCoverFullSpan
+	shortEdge bookletBinding = iota
+	longEdge
 )
+
+func (b bookletBinding) String() string {
+	switch b {
+	case shortEdge:
+		return "short-edge"
+	case longEdge:
+		return "long-edge"
+	}
+	return ""
+}
 
 var (
 	errInvalidBookletGridID          = errors.New("pdfcpu booklet: n must be one of 2, 4")
@@ -68,6 +82,8 @@ func DefaultBookletConfig() *NUp {
 	nup.BookletGuides = false
 	nup.MultiFolio = false
 	nup.FolioSize = 8
+	nup.BookletType = Booklet
+	nup.BookletBinding = longEdge
 	return nup
 }
 
@@ -83,9 +99,6 @@ func PDFBookletConfig(val int, desc string) (*NUp, error) {
 		return nil, err
 	}
 	if nup.BookletType == Booklet && !(val == 2 || val == 4) {
-		return nup, errInvalidBookletGridID
-	}
-	if (nup.BookletType == BookletTopFold) && val != 4 {
 		return nup, errInvalidBookletGridID
 	}
 	if nup.BookletType == BookletCover && !(val == 2 || val == 4) {
@@ -335,20 +348,19 @@ func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 			}
 
 		case 4:
-			// (output page, input page) = [(1,n), (2,1), (3, n/2+1), (4, n/2-0), (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2) ...]
-			for i := 0; i < pageCount; i++ {
-				pageNr, rotate := nup4OutputPageNr(i, pageCount, pageNumbers, nup)
-				bookletPages[i].number = pageNr
-				bookletPages[i].rotate = rotate
-			}
-		}
-	case BookletTopFold:
-		switch nup.N() {
-		case 4:
-			for i := 0; i < pageCount; i++ {
-				pageNr, rotate := nup4TopFoldOutputPageNr(i, pageCount, pageNumbers, nup)
-				bookletPages[i].number = pageNr
-				bookletPages[i].rotate = rotate
+			if nup.isTopFoldBinding() {
+				for i := 0; i < pageCount; i++ {
+					pageNr, rotate := nup4TopFoldOutputPageNr(i, pageCount, pageNumbers, nup)
+					bookletPages[i].number = pageNr
+					bookletPages[i].rotate = rotate
+				}
+			} else {
+				// (output page, input page) = [(1,n), (2,1), (3, n/2+1), (4, n/2-0), (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2) ...]
+				for i := 0; i < pageCount; i++ {
+					pageNr, rotate := nup4OutputPageNr(i, pageCount, pageNumbers, nup)
+					bookletPages[i].number = pageNr
+					bookletPages[i].rotate = rotate
+				}
 			}
 		}
 	case BookletCover:
@@ -375,7 +387,12 @@ func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 				bookletPages = []bookletPage{{0, false}, {1, false}, {1, true}, {0, true}}
 			case 2:
 				// the cover has a front and back
-				bookletPages = []bookletPage{{2, false}, {1, false}, {1, true}, {2, true}}
+				if nup.isTopFoldBinding() {
+					// the cover and it's back should both have top sides up
+					bookletPages = []bookletPage{{2, true}, {1, true}, {1, false}, {2, false}}
+				} else {
+					bookletPages = []bookletPage{{2, false}, {1, false}, {1, true}, {2, true}}
+				}
 			}
 		}
 	case BookletCoverFullSpan:
