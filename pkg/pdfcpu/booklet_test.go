@@ -6,6 +6,7 @@ import (
 )
 
 type pageOrderResults struct {
+	nup               int
 	pageCount         int
 	expectedPageOrder []int
 	papersize         string
@@ -16,6 +17,7 @@ type pageOrderResults struct {
 var bookletTestCases = []pageOrderResults{
 	// classic (booklet) test cases
 	{
+		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
 			8, 1, 5, 4,
@@ -26,6 +28,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
+		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
 			8, 1, 5, 4,
@@ -37,6 +40,7 @@ var bookletTestCases = []pageOrderResults{
 	},
 	// topfold test cases
 	{
+		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
 			8, 3, 1, 6,
@@ -47,6 +51,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "short",
 	},
 	{
+		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
 			8, 3, 1, 6,
@@ -57,6 +62,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
+		nup:       4,
 		pageCount: 16,
 		expectedPageOrder: []int{
 			16, 3, 1, 14,
@@ -68,11 +74,36 @@ var bookletTestCases = []pageOrderResults{
 		bookletType: "booklet",
 		binding:     "short",
 	},
+	// 6up test
+	{
+		nup:       6,
+		pageCount: 12,
+		expectedPageOrder: []int{
+			12, 1, 10, 3, 8, 5,
+			2, 11, 4, 9, 6, 7,
+		},
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "booklet",
+		binding:     "long",
+	},
+	{
+		nup:       6,
+		pageCount: 24,
+		expectedPageOrder: []int{
+			24, 1, 22, 3, 20, 5,
+			2, 23, 4, 21, 6, 19,
+			18, 7, 16, 9, 14, 11,
+			8, 17, 10, 15, 12, 13,
+		},
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "booklet",
+		binding:     "long",
+	},
 }
 
 func TestBookletPageOrder(t *testing.T) {
 	for _, test := range bookletTestCases {
-		nup, err := PDFBookletConfig(4, fmt.Sprintf("papersize:%s, btype:%s, binding: %s", test.papersize, test.bookletType, test.binding))
+		nup, err := PDFBookletConfig(test.nup, fmt.Sprintf("papersize:%s, btype:%s, binding: %s", test.papersize, test.bookletType, test.binding))
 		if err != nil {
 			t.Fatal(err)
 		}
