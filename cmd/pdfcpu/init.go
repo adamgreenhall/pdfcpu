@@ -23,6 +23,14 @@ import (
 )
 
 func initCommandMap() {
+	annotsCmdMap := newCommandMap()
+	for k, v := range map[string]command{
+		"list":   {processListAnnotationsCommand, nil, "", ""},
+		"remove": {processRemoveAnnotationsCommand, nil, "", ""},
+	} {
+		annotsCmdMap.register(k, v)
+	}
+
 	attachCmdMap := newCommandMap()
 	for k, v := range map[string]command{
 		"list":    {processListAttachmentsCommand, nil, "", ""},
@@ -40,6 +48,13 @@ func initCommandMap() {
 		"remove": {processRemoveBoxesCommand, nil, "", ""},
 	} {
 		boxesCmdMap.register(k, v)
+	}
+
+	imagesCmdMap := newCommandMap()
+	for k, v := range map[string]command{
+		"list": {processListImagesCommand, nil, "", ""},
+	} {
+		imagesCmdMap.register(k, v)
 	}
 
 	portfolioCmdMap := newCommandMap()
@@ -116,6 +131,7 @@ func initCommandMap() {
 	cmdMap = newCommandMap()
 
 	for k, v := range map[string]command{
+		"annotations":   {nil, annotsCmdMap, usageAnnots, usageLongAnnots},
 		"attachments":   {nil, attachCmdMap, usageAttach, usageLongAttach},
 		"booklet":       {processBookletCommand, nil, usageBooklet, usageLongBooklet},
 		"boxes":         {nil, boxesCmdMap, usageBoxes, usageLongBoxes},
@@ -129,8 +145,9 @@ func initCommandMap() {
 		"fonts":         {nil, fontsCmdMap, usageFonts, usageLongFonts},
 		"grid":          {processGridCommand, nil, usageGrid, usageLongGrid},
 		"help":          {printHelp, nil, "", ""},
-		"info":          {processInfoCommand, nil, usageInfo, usageLongInfo},
+		"images":        {nil, imagesCmdMap, usageImages, usageLongImages},
 		"import":        {processImportImagesCommand, nil, usageImportImages, usageLongImportImages},
+		"info":          {processInfoCommand, nil, usageInfo, usageLongInfo},
 		"keywords":      {nil, keywordsCmdMap, usageKeywords, usageLongKeywords},
 		"merge":         {processMergeCommand, nil, usageMerge, usageLongMerge},
 		"nup":           {processNUpCommand, nil, usageNUp, usageLongNUp},
@@ -172,7 +189,7 @@ func initFlags() {
 	flag.StringVar(&unit, "unit", "", unitUsage)
 	flag.StringVar(&unit, "u", "", unitUsage)
 
-	selectedPagesUsage := "a comma separated list of pages or page ranges, see pdfcpu help split/extract"
+	selectedPagesUsage := "a comma separated list of pages or page ranges, see pdfcpu selectedpages"
 	flag.StringVar(&selectedPages, "pages", "", selectedPagesUsage)
 	flag.StringVar(&selectedPages, "p", "", selectedPagesUsage)
 

@@ -87,6 +87,18 @@ func (sd StreamDict) HasSoleFilterNamed(filterName string) bool {
 	return fpl[0].Name == filterName
 }
 
+func (sd StreamDict) Image() bool {
+	s := sd.Type()
+	if s == nil || *s != "XObject" {
+		return false
+	}
+	s = sd.Subtype()
+	if s == nil || *s != "Image" {
+		return false
+	}
+	return true
+}
+
 // ObjectStreamDict represents a object stream dictionary.
 type ObjectStreamDict struct {
 	StreamDict
@@ -307,6 +319,9 @@ func NewXRefStreamDict(ctx *Context) *XRefStreamDict {
 	}
 	if ctx.Encrypt != nil && ctx.EncKey != nil {
 		sd.Insert("Encrypt", *ctx.Encrypt)
+	}
+	if ctx.Write.Increment {
+		sd.Insert("Prev", Integer(*ctx.Write.OffsetPrevXRef))
 	}
 	return &XRefStreamDict{StreamDict: sd}
 }

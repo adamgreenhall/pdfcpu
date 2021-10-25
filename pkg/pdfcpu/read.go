@@ -138,6 +138,44 @@ func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	return 0, nil, nil
 }
 
+func scanLinesForSingleEol(data []byte, atEOF bool) (advance int, token []byte, err error) {
+
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+
+	indCR := bytes.IndexByte(data, '\r')
+	indLF := bytes.IndexByte(data, '\n')
+
+	switch {
+
+	case indCR >= 0 && indLF >= 0:
+		if indCR < indLF {
+			// 0x0D ... 0x0A
+			return indCR + 1, data[0:indCR], nil
+		}
+		// 0x0A ... 0x0D
+		return indLF + 1, data[0:indLF], nil
+
+	case indCR >= 0:
+		// We have a full carriage return terminated line.
+		return indCR + 1, data[0:indCR], nil
+
+	case indLF >= 0:
+		// We have a full newline-terminated line.
+		return indLF + 1, data[0:indLF], nil
+
+	}
+
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+
+	// Request more data.
+	return 0, nil, nil
+}
+
 func newPositionedReader(rs io.ReadSeeker, offset *int64) (*bufio.Reader, error) {
 
 	if _, err := rs.Seek(*offset, io.SeekStart); err != nil {
@@ -790,12 +828,6 @@ func scanLine(s *bufio.Scanner) (s1 string, err error) {
 		}
 	}
 
-	// Remove comment.
-	i := strings.Index(s1, "%")
-	if i >= 0 {
-		s1 = s1[:i]
-	}
-
 	return s1, nil
 }
 
@@ -1082,7 +1114,7 @@ func bypassXrefSection(ctx *Context) error {
 	}
 
 	s := bufio.NewScanner(rd)
-	s.Split(scanLines)
+	s.Split(scanLinesForSingleEol)
 
 	bb := []byte{}
 	var (
@@ -1293,6 +1325,8 @@ func readXRefTable(ctx *Context) (err error) {
 		return
 	}
 
+	ctx.Write.OffsetPrevXRef = offset
+
 	err = buildXRefTableStartingAt(ctx, offset)
 	if err == io.EOF {
 		return errors.Wrap(err, "readXRefTable: unexpected eof")
@@ -1469,7 +1503,7 @@ func keywordStreamRightAfterEndOfDict(buf string, streamInd int) bool {
 	return ok
 }
 
-func buildFilterPipeline(ctx *Context, filterArray, decodeParmsArr Array, decodeParms Object) ([]PDFFilter, error) {
+func buildFilterPipeline(ctx *Context, filterArray, decodeParmsArr Array) ([]PDFFilter, error) {
 
 	var filterPipeline []PDFFilter
 
@@ -1479,7 +1513,7 @@ func buildFilterPipeline(ctx *Context, filterArray, decodeParmsArr Array, decode
 		if !ok {
 			return nil, errors.New("pdfcpu: buildFilterPipeline: filterArray elements corrupt")
 		}
-		if decodeParms == nil || decodeParmsArr[i] == nil {
+		if decodeParmsArr == nil || decodeParmsArr[i] == nil {
 			filterPipeline = append(filterPipeline, PDFFilter{Name: filterName.Value(), DecodeParms: nil})
 			continue
 		}
@@ -1572,14 +1606,14 @@ func pdfFilterPipeline(ctx *Context, dict Dict) ([]PDFFilter, error) {
 	decodeParms, found := dict.Find("DecodeParms")
 	if found {
 		decodeParmsArr, ok = decodeParms.(Array)
-		if !ok {
+		if !ok || len(decodeParmsArr) != len(filterArray) {
 			return nil, errors.New("pdfcpu: pdfFilterPipeline: expected decodeParms array corrupt")
 		}
 	}
 
 	//fmt.Printf("decodeParmsArr: %s\n", decodeParmsArr)
 
-	filterPipeline, err = buildFilterPipeline(ctx, filterArray, decodeParmsArr, decodeParms)
+	filterPipeline, err = buildFilterPipeline(ctx, filterArray, decodeParmsArr)
 
 	log.Read.Println("pdfFilterPipeline: end")
 
@@ -1994,6 +2028,10 @@ func saveDecodedStreamContent(ctx *Context, sd *StreamDict, objNr, genNr int, de
 		return nil
 	}
 
+	if sd.Image() {
+		return nil
+	}
+
 	// Actual decoding of stream data.
 	err = sd.Decode()
 	if err == filter.ErrUnsupportedFilter {
@@ -2053,9 +2091,9 @@ func logStream(o Object) {
 			log.Read.Println("logStream: no stream content")
 		}
 
-		if o.IsPageContent {
-			//log.Read.Printf("content <%s>\n", StreamDict.Content)
-		}
+		// if o.IsPageContent {
+		// 	//log.Read.Printf("content <%s>\n", StreamDict.Content)
+		// }
 
 	case ObjectStreamDict:
 

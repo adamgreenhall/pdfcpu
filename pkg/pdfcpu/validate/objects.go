@@ -182,11 +182,9 @@ func validateBooleanArrayEntry(xRefTable *pdf.XRefTable, d pdf.Dict, dictName, e
 
 func validateDateObject(xRefTable *pdf.XRefTable, o pdf.Object, sinceVersion pdf.Version) (string, error) {
 	s, err := xRefTable.DereferenceStringOrHexLiteral(o, sinceVersion, nil)
-	//sl, err := xRefTable.DereferenceStringLiteral(o, sinceVersion, nil)
 	if err != nil {
 		return "", err
 	}
-	//s := sl.Value()
 	if s == "" {
 		return s, nil
 	}
@@ -681,7 +679,7 @@ func validateNameEntry(xRefTable *pdf.XRefTable, d pdf.Dict, dictName, entryName
 
 	name, ok := o.(pdf.Name)
 	if !ok {
-		return nil, errors.Errorf("pdfcpu: validateNameEntry: dict=%s entry=%s invalid type", dictName, entryName)
+		return nil, errors.Errorf("pdfcpu: validateNameEntry: dict=%s entry=%s invalid type %T", dictName, entryName, o)
 	}
 
 	// Validation

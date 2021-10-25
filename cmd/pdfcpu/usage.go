@@ -25,6 +25,7 @@ Usage:
    
 The commands are:
 
+   annotations   list, remove page annotations
    attachments   list, add, remove, extract embedded file attachments
    booklet       arrange pages onto larger sheets of paper to make a booklet or zine
    boxes         list, add, remove page boundaries for selected pages
@@ -37,6 +38,7 @@ The commands are:
    extract       extract images, fonts, content, pages or metadata
    fonts         install, list supported fonts, create cheat sheets
    grid          rearrange pages or images for enhanced browsing experience
+   images        list images for selected pages
    import        import/convert images to PDF
    info          print file info
    keywords      list, add, remove keywords
@@ -148,7 +150,7 @@ The merge modes are:
 
         e.g. -3,5,7- or 4-7,!6 or 1-,!5 or odd,n1`
 
-	usageExtract     = "usage: pdfcpu extract -m(ode) image|font|content|page|meta [-p(ages) selectedPages] inFile outDir" + generalFlags
+	usageExtract     = "usage: pdfcpu extract -m(ode) i(mage)|f(ont)|c(ontent)|p(age)|m(eta) [-p(ages) selectedPages] inFile outDir" + generalFlags
 	usageLongExtract = `Export inFile's images, fonts, content or pages into outDir.
 
       mode ... extraction mode
@@ -189,7 +191,10 @@ content ... extract raw page content
 
     inFile ... input pdf file
       file ... attachment
-    outDir ... output directory`
+    outDir ... output directory
+    
+    Remove all attachments: pdfcpu attach remove test.pdf
+    `
 
 	usagePortfolioList    = "pdfcpu portfolio list    inFile"
 	usagePortfolioAdd     = "pdfcpu portfolio add     inFile file[,desc]..."
@@ -303,7 +308,7 @@ content ... extract raw page content
 	usageWMDescription = `
 
 <description> is a comma separated configuration string containing these optional entries:
-	
+   
    (defaults: "font:Helvetica, points:24, rtl:off, pos:c, off:0,0 sc:0.5 rel, rot:0, d:1, op:1, m:0 and for all colors: 0.5 0.5 0.5")
 
    fontname:         Please refer to "pdfcpu fonts list"
@@ -311,18 +316,19 @@ content ... extract raw page content
    points:           fontsize in points, in combination with absolute scaling only.
 
    rtl:              render right to left (on/off, true/false, t/f)
-   
+
    position:         one of the anchors:
-                     tl(=topleft)      tc(=topcenter)       tr(=topright)
-                     l(=left)          c(=center)           r(=right)
-                     bl(=bottom left)  bc(=bottom center)   br(=bottom right)
-   
+
+                           tl|top-left     tc|top-center      tr|top-right
+                            l|left          c|center           r|right
+                           bl|bottom-left  bc|bottom-center   br|bottom-right
+
    offset:           (dx dy) in given display unit eg. '15 20'
    
    scalefactor:      0.0 < i <= 1.0 {r|rel} | 0.0 < i {a|abs}
-  
-   aligntext:        l..left, c..center, r..right, j..justified (for text watermarks only)
-   
+                    
+   aligntext:        l|left, c|center, r|right, j|justified (for text watermarks only)
+
    fillcolor:        color value to be used when rendering text, see also rendermode
                      for backwards compatibility "color" is also accepted.
    
@@ -359,6 +365,8 @@ content ... extract raw page content
                      color ... border color
                      round ... set round bounding box corners
 
+   url:              Add link annotation for stamps only (omit https://)
+
 A color value: 3 color intensities, where 0.0 < i < 1.0, eg 1.0, 
                or the hex RGB value: #RRGGBB, eg #FF0000 = red
 
@@ -366,9 +374,9 @@ All configuration string parameters support completion.
 
 e.g. "pos:bl, off: 20 5"   "rot:45"                 "op:0.5, sc:0.5 abs, rot:0"
      "d:2"                 "sc:.75 abs, points:48"  "rot:-90, scale:0.75 rel"
-     "f:Courier, sc:0.75, str: 0.5 0.0 0.0, rot:20"  
-  
-     
+     "f:Courier, sc:0.75, str: 0.5 0.0 0.0, rot:20"
+
+
 `
 
 	usageStampAdd    = "pdfcpu stamp add    [-p(ages) selectedPages] -m(ode) text|image|pdf -- string|file description inFile [outFile]"
@@ -432,17 +440,29 @@ description ... dimensions, format, position, offset, scale factor, boxes
       (defaults: "d:595 842, f:A4, pos:full, off:0 0, sc:0.5 rel, dpi:72, gray:off, sepia:off")
 
   dimensions:      (width height) in given display unit eg. '400 200' setting the media box
+
   formsize:        eg. A4, Letter, Legal...
                    Append 'L' to enforce landscape mode. (eg. A3L)
                    Append 'P' to enforce portrait mode. (eg. TabloidP)
                    Please refer to "pdfcpu paper" for a comprehensive list of defined paper sizes.
                    "papersize" is also accepted.
-  position:        one of 'full' or the anchors: tl,tc,tr, l,c,r, bl,bc,br
+
+  position:        one of 'full' or the anchors:
+
+                        tl|top-left     tc|top-center      tr|top-right
+                         l|left          c|center           r|right
+                        bl|bottom-left  bc|bottom-center   br|bottom-right
+
   offset:          (dx dy) in given display unit eg. '15 20'
+
   scalefactor:     0.0 <= x <= 1.0 followed by optional 'abs|rel' or 'a|r'
+
   dpi:             apply desired dpi
+
   gray:            Convert to grayscale (on/off, true/false, t/f)
+
   sepia:           Apply sepia effect (on/off, true/false, t/f)
+
   backgroundcolor: "bgcolor" is also accepted.
   
   Only one of dimensions or format is allowed.
@@ -767,6 +787,9 @@ Create single page PDF cheat sheets in current dir.`
     
     Eg. adding two keywords: 
            pdfcpu keywords add test.pdf music 'virtual instruments'
+
+        remove all keywords:
+           pdfcpu keywords remove test.pdf
     `
 
 	usagePropertiesList   = "pdfcpu properties list    inFile"
@@ -785,6 +808,8 @@ nameValuePair ... 'name = value'
      
      Eg. adding one property:   pdfcpu properties add test.pdf 'key = value'
          adding two properties: pdfcpu properties add test.pdf 'key1 = val1' 'key2 = val2'
+
+         remove all properties: pdfcpu properties remove test.pdf
      `
 	usageCollect     = "usage: pdfcpu collect -p(ages) selectedPages inFile [outFile]" + generalFlags
 	usageLongCollect = `Create custom sequence of selected pages. 
@@ -884,4 +909,43 @@ Examples:
    pdfcpu box rem -- "t,b" in.pdf
      
 ` + usageBoxDescription
+
+	usageAnnotsList   = "pdfcpu annotations list   [-p(ages) selectedPages] inFile"
+	usageAnnotsRemove = "pdfcpu annotations remove [-p(ages) selectedPages] inFile [objNr...]" + generalFlags
+
+	usageAnnots = "usage: " + usageAnnotsList +
+		"\n       " + usageAnnotsRemove
+
+	usageLongAnnots = `Manage annotations.
+   
+      pages ... Please refer to "pdfcpu selectedpages"
+     inFile ... input pdf file
+      objNr ... annotation dict objNr
+   
+   Examples:
+
+      pdfcpu annot list in.pdf
+      pdfcpu annot list -pages 1-2 in.pdf
+
+      Remove all page annotations:
+         pdfcpu annot remove in.pdf
+      
+      Remove annotations for first 10 pages:
+         pdfcpu annot remove -pages 1-10 in.pdf
+
+      Remove annotations with obj# 37, 38 (see output of pdfcpu annot list)
+         pdfcpu annot remove in.pdf 37 38
+      `
+
+	usageImagesList = "pdfcpu images list [-p(ages) selectedPages] inFile" + generalFlags
+
+	usageImages = "usage: " + usageImagesList
+
+	usageLongImages = `Manage keywords.
+
+     pages ... Please refer to "pdfcpu selectedpages"
+    inFile ... input pdf file
+    
+    Example: pdfcpu images list -p "1-5" gallery.pdf
+    `
 )

@@ -49,12 +49,13 @@ func prevalidateDate(s string, relaxed bool) (string, bool) {
 		s = utf16s
 	}
 
+	// Remove trailing 0x00
+	s = strings.TrimRight(s, "\x00")
+
 	if relaxed {
 		// Accept missing "D:" prefix.
 		// "YYYY" is mandatory
-		if strings.HasPrefix(s, "D:") {
-			s = s[2:]
-		}
+		s = strings.TrimPrefix(s, "D:")
 		return s, len(s) >= 4
 	}
 
@@ -81,14 +82,15 @@ func parseTimezoneHours(s string, o byte) (int, bool) {
 		return 0, false
 	}
 
-	if s[17] != '\'' {
-		return 0, false
-	}
-
 	return tzh, true
 }
 
 func parseTimezoneMinutes(s string, o byte) (int, bool) {
+
+	if s[17] != '\'' {
+		return 0, false
+	}
+
 	tzmin := s[18:20]
 	tzm, err := strconv.Atoi(tzmin)
 	if err != nil {
@@ -105,7 +107,7 @@ func parseTimezoneMinutes(s string, o byte) (int, bool) {
 
 	// "YYYYMMDDHHmmSSZHH'mm"
 	if len(s) == 20 {
-		return 0, false
+		return 0, true
 	}
 
 	// Accept a trailing '
@@ -130,9 +132,9 @@ func parseTimezone(s string, relaxed bool) (h, m int, ok bool) {
 		return 0, 0, true
 	}
 
-	if len(s) < 18 {
-		return 0, 0, false
-	}
+	// if len(s) < 18 {
+	// 	return 0, 0, false
+	// }
 
 	neg := o == '-'
 
@@ -145,8 +147,8 @@ func parseTimezone(s string, relaxed bool) (h, m int, ok bool) {
 		tzh *= -1
 	}
 
-	// "YYYYMMDDHHmmSSZHH'"
-	if len(s) == 18 {
+	// "YYYYMMDDHHmmSSZHH"
+	if len(s) == 17 {
 		return tzh, 0, true
 	}
 
