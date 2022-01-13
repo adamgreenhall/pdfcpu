@@ -58,6 +58,7 @@ var nupParamMap = nUpParamMap{
 	"papersize":       parsePageFormatNUp,
 	"orientation":     parseOrientation,
 	"border":          parseElementBorder,
+	"cropboxborder":   parseElementBorderOnCropbox,
 	"margin":          parseElementMargin,
 	"backgroundcolor": parseSheetBackgroundColor,
 	"bgcolor":         parseSheetBackgroundColor,
@@ -91,20 +92,21 @@ func (m nUpParamMap) Handle(paramPrefix, paramValueStr string, nup *NUp) error {
 
 // NUp represents the command details for the command "NUp".
 type NUp struct {
-	PageDim       *Dim         // Page dimensions in display unit.
-	PageSize      string       // Paper size eg. A4L, A4P, A4(=default=A4P), see paperSize.go
-	UserDim       bool         // true if one of dimensions or paperSize provided overriding the default.
-	Orient        orientation  // One of rd(=default),dr,ld,dl
-	Grid          *Dim         // Intra page grid dimensions eg (2,2)
-	PageGrid      bool         // Create a m x n grid of pages for PDF inputfiles only (think "extra page n-Up").
-	ImgInputFile  bool         // Process image or PDF input files.
-	Margin        int          // Cropbox for n-Up content.
-	Border        bool         // Draw bounding box.
-	BookletGuides bool         // Draw folding and cutting lines.
-	MultiFolio    bool         // Render booklet as sequence of folios.
-	FolioSize     int          // Booklet multifolio folio size: default: 8
-	InpUnit       DisplayUnit  // input display unit.
-	BgColor       *SimpleColor // background color
+	PageDim         *Dim         // Page dimensions in display unit.
+	PageSize        string       // Paper size eg. A4L, A4P, A4(=default=A4P), see paperSize.go
+	UserDim         bool         // true if one of dimensions or paperSize provided overriding the default.
+	Orient          orientation  // One of rd(=default),dr,ld,dl
+	Grid            *Dim         // Intra page grid dimensions eg (2,2)
+	PageGrid        bool         // Create a m x n grid of pages for PDF inputfiles only (think "extra page n-Up").
+	ImgInputFile    bool         // Process image or PDF input files.
+	Margin          int          // Cropbox for n-Up content.
+	Border          bool         // Draw bounding box.
+	BorderOnCropbox bool         // Draw bounding box around crop box.
+	BookletGuides   bool         // Draw folding and cutting lines.
+	MultiFolio      bool         // Render booklet as sequence of folios.
+	FolioSize       int          // Booklet multifolio folio size: default: 8
+	InpUnit         DisplayUnit  // input display unit.
+	BgColor         *SimpleColor // background color
 }
 
 // DefaultNUpConfig returns the default NUp configuration.
@@ -200,6 +202,19 @@ func parseElementBorder(s string, nup *NUp) error {
 		nup.Border = false
 	default:
 		return errors.New("pdfcpu: nUp border, please provide one of: on/off true/false t/f")
+	}
+
+	return nil
+}
+
+func parseElementBorderOnCropbox(s string, nup *NUp) error {
+	switch strings.ToLower(s) {
+	case "on", "true", "t":
+		nup.BorderOnCropbox = true
+	case "off", "false", "f":
+		nup.BorderOnCropbox = false
+	default:
+		return errors.New("pdfcpu: nUp borderOnCropbox, please provide one of: on/off true/false t/f")
 	}
 
 	return nil
@@ -593,6 +608,12 @@ func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup
 	// Apply transform matrix and display form.
 	fmt.Fprintf(wr, "q %.2f %.2f %.2f %.2f %.2f %.2f cm /%s Do Q ",
 		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1], formResID)
+	if nup.BorderOnCropbox {
+		fmt.Fprintf(wr, "[]0 d 0.1 w %.2f %.2f m %.2f %.2f l %.2f %.2f l %.2f %.2f l s ",
+			rDestCr.LL.X, rDestCr.LL.Y, rDestCr.UR.X, rDestCr.LL.Y, rDestCr.UR.X, rDestCr.UR.Y, rDestCr.LL.X, rDestCr.UR.Y,
+		)
+	}
+
 }
 
 func nUpImagePDFBytes(w io.Writer, imgWidth, imgHeight int, nup *NUp, formResID string) {
