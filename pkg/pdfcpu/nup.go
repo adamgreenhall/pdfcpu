@@ -532,6 +532,12 @@ func BestFitRectIntoRect(rSrc, rDest *Rectangle, enforceOrient bool) (w, h, dx, 
 	return
 }
 
+func drawBorder(wr io.Writer, r *Rectangle) {
+	fmt.Fprintf(wr, "[]0 d 0.1 w %.2f %.2f m %.2f %.2f l %.2f %.2f l %.2f %.2f l s ",
+		r.LL.X, r.LL.Y, r.UR.X, r.LL.Y, r.UR.X, r.UR.Y, r.LL.X, r.UR.Y,
+	)
+}
+
 func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup *NUp, rotate, enforceOrient bool) {
 
 	// rScr is a rectangular region represented by form formResID in form space.
@@ -546,13 +552,6 @@ func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup
 	//
 	// enforceOrient:
 	//			indicates if we need to enforce dest's orientation.
-
-	// Draw bounding box.
-	if nup.Border {
-		fmt.Fprintf(wr, "[]0 d 0.1 w %.2f %.2f m %.2f %.2f l %.2f %.2f l %.2f %.2f l s ",
-			rDest.LL.X, rDest.LL.Y, rDest.UR.X, rDest.LL.Y, rDest.UR.X, rDest.UR.Y, rDest.LL.X, rDest.UR.Y,
-		)
-	}
 
 	// Apply margin to rDest which potentially makes it smaller.
 	rDestCr := rDest.CroppedCopy(float64(nup.Margin))
@@ -604,14 +603,19 @@ func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup
 	dy += rDestCr.LL.Y
 
 	m := CalcTransformMatrix(sx, sy, sin, cos, dx, dy)
-
 	// Apply transform matrix and display form.
 	fmt.Fprintf(wr, "q %.2f %.2f %.2f %.2f %.2f %.2f cm /%s Do Q ",
 		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1], formResID)
+	if nup.Border {
+		drawBorder(wr, rDest)
+	}
 	if nup.BorderOnCropbox {
-		fmt.Fprintf(wr, "[]0 d 0.1 w %.2f %.2f m %.2f %.2f l %.2f %.2f l %.2f %.2f l s ",
-			rDestCr.LL.X, rDestCr.LL.Y, rDestCr.UR.X, rDestCr.LL.Y, rDestCr.UR.X, rDestCr.UR.Y, rDestCr.LL.X, rDestCr.UR.Y,
+		ll := m.Transform(Point(rSrc.LL))
+		ur := m.Transform(Point(rSrc.UR))
+		rSrcTransformed := Rect(
+			ll.X, ll.Y, ur.X, ur.Y,
 		)
+		drawBorder(wr, rSrcTransformed)
 	}
 
 }
