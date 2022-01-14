@@ -158,7 +158,7 @@ type Rectangle struct {
 	*types.Rectangle
 }
 
-func (r Rectangle) equals(r2 Rectangle) bool {
+func (r Rectangle) Equals(r2 Rectangle) bool {
 	return r.LL == r2.LL && r.UR == r2.UR
 }
 
@@ -186,6 +186,12 @@ func (r Rectangle) Dimensions() Dim {
 func (r *Rectangle) Translate(dx, dy float64) {
 	r.LL.Translate(dx, dy)
 	r.UR.Translate(dx, dy)
+}
+
+func (r *Rectangle) Center() Point {
+	x := r.UR.X - r.Width()/2
+	y := r.UR.Y - r.Height()/2
+	return Point{x, y}
 }
 
 // Array returns the PDF representation of a rectangle.
@@ -369,7 +375,7 @@ func (nameObject Name) Clone() Object {
 }
 
 func (nameObject Name) String() string {
-	return fmt.Sprintf("%s", string(nameObject))
+	return fmt.Sprint(string(nameObject))
 }
 
 // PDFString returns a string representation as found in and written to a PDF file.

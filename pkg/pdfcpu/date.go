@@ -56,6 +56,9 @@ func prevalidateDate(s string, relaxed bool) (string, bool) {
 		// Accept missing "D:" prefix.
 		// "YYYY" is mandatory
 		s = strings.TrimPrefix(s, "D:")
+		s = strings.TrimSpace(s)
+		s = strings.ReplaceAll(s, ".", "")
+		s = strings.ReplaceAll(s, "\\", "")
 		return s, len(s) >= 4
 	}
 
@@ -68,15 +71,13 @@ func prevalidateDate(s string, relaxed bool) (string, bool) {
 }
 
 func parseTimezoneHours(s string, o byte) (int, bool) {
-	tzhours := s[15:17]
-	tzh, err := strconv.Atoi(tzhours)
+	tzh, err := strconv.Atoi(s)
 	if err != nil {
 		return 0, false
 	}
 
-	if tzh > 23 {
-		return 0, false
-	}
+	// Opininated hack.
+	tzh = tzh % 24
 
 	if o == 'Z' && tzh != 0 {
 		return 0, false
@@ -87,12 +88,7 @@ func parseTimezoneHours(s string, o byte) (int, bool) {
 
 func parseTimezoneMinutes(s string, o byte) (int, bool) {
 
-	if s[17] != '\'' {
-		return 0, false
-	}
-
-	tzmin := s[18:20]
-	tzm, err := strconv.Atoi(tzmin)
+	tzm, err := strconv.Atoi(s)
 	if err != nil {
 		return 0, false
 	}
@@ -105,13 +101,7 @@ func parseTimezoneMinutes(s string, o byte) (int, bool) {
 		return 0, false
 	}
 
-	// "YYYYMMDDHHmmSSZHH'mm"
-	if len(s) == 20 {
-		return 0, true
-	}
-
-	// Accept a trailing '
-	return tzm, s[20] == '\''
+	return tzm, true
 }
 
 func validateTimezoneSeparator(c byte) bool {
@@ -119,26 +109,35 @@ func validateTimezoneSeparator(c byte) bool {
 }
 
 func parseTimezone(s string, relaxed bool) (h, m int, ok bool) {
+
 	o := s[14]
 
 	if !validateTimezoneSeparator(o) {
-		return 0, 0, false
+		// Ignore timezone on corrupt timezone separator if relaxed.
+		return 0, 0, relaxed
 	}
 
 	// local time equal to UT.
 	// "YYYYMMDDHHmmSSZ" or
-	// "20201222164228Z'" accepted if relaxed
-	if o == 'Z' && (len(s) == 15 || (relaxed && len(s) == 16)) {
+	// "YYYYMMDDHHmmSSZ'" if relaxed
+	if o == 'Z' && (len(s) == 15 || (relaxed && len(s) == 16 && s[15] == '\'')) {
 		return 0, 0, true
 	}
 
-	// if len(s) < 18 {
-	// 	return 0, 0, false
-	// }
+	// HH'mm'
+	s = s[15:]
+	if s[0] == '-' {
+		s = s[1:]
+	}
+	s = strings.ReplaceAll(s, " ", "0")
+	ss := strings.Split(s, "'")
+	if len(ss) == 0 {
+		return 0, 0, false
+	}
 
 	neg := o == '-'
 
-	tzh, ok := parseTimezoneHours(s, o)
+	tzh, ok := parseTimezoneHours(ss[0], o)
 	if !ok {
 		return 0, 0, false
 	}
@@ -147,16 +146,12 @@ func parseTimezone(s string, relaxed bool) (h, m int, ok bool) {
 		tzh *= -1
 	}
 
-	// "YYYYMMDDHHmmSSZHH"
-	if len(s) == 17 {
+	if len(ss) == 1 || len(ss) == 2 && len(ss[1]) == 0 {
+		// Ignore missing timezone minutes.
 		return tzh, 0, true
 	}
 
-	if len(s) != 20 && len(s) != 21 {
-		return 0, 0, false
-	}
-
-	tzm, ok := parseTimezoneMinutes(s, o)
+	tzm, ok := parseTimezoneMinutes(ss[1], o)
 	if !ok {
 		return 0, 0, false
 	}
@@ -308,6 +303,36 @@ func parseSecond(s string) (sec int, finished, ok bool) {
 	return sec, false, true
 }
 
+func digestPopularOutOfSpecDates(s string) (time.Time, bool) {
+
+	// Mon Jan 2 15:04:05 2006
+	// Monday, January 02, 2006 3:04:05 PM
+	// 1/2/2006 15:04:05
+	// Mon, Jan 2, 2006
+
+	t, err := time.Parse("Mon Jan 2 15:04:05 2006", s)
+	if err == nil {
+		return t, true
+	}
+
+	t, err = time.Parse("Monday, January 02, 2006 3:04:05 PM", s)
+	if err == nil {
+		return t, true
+	}
+
+	t, err = time.Parse("1/2/2006 15:04:05", s)
+	if err == nil {
+		return t, true
+	}
+
+	t, err = time.Parse("Mon, Jan 2, 2006", s)
+	if err == nil {
+		return t, true
+	}
+
+	return t, false
+}
+
 // DateTime decodes s into a time.Time.
 func DateTime(s string, relaxed bool) (time.Time, bool) {
 	// 7.9.4 Dates
@@ -323,7 +348,8 @@ func DateTime(s string, relaxed bool) (time.Time, bool) {
 
 	y, finished, ok := parseYear(s)
 	if !ok {
-		return d, false
+		// Try workaround
+		return digestPopularOutOfSpecDates(s)
 	}
 
 	// Construct time for yyyy 01 01 00:00:00

@@ -1,3 +1,4 @@
+//go:build !js
 // +build !js
 
 /*
@@ -20,13 +21,13 @@ package pdfcpu
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
 type configuration struct {
+	CheckFileNameExt  bool   `yaml:"checkFileNameExt"`
 	Reader15          bool   `yaml:"reader15"`
 	DecodeAllStreams  bool   `yaml:"decodeAllStreams"`
 	ValidationMode    string `yaml:"validationMode"`
@@ -38,12 +39,15 @@ type configuration struct {
 	Permissions       int    `yaml:"permissions"`
 	Unit              string `yaml:"unit"`
 	Units             string `yaml:"units"` // Be flexible if version < v0.3.8
+	TimestampFormat   string `yaml:"timestampFormat"`
+	HeaderBufSize     int    `yaml:"headerBufSize"`
 }
 
 func loadedConfig(c configuration, configPath string) *Configuration {
 	var conf Configuration
 	conf.Path = configPath
 
+	conf.CheckFileNameExt = c.CheckFileNameExt
 	conf.Reader15 = c.Reader15
 	conf.DecodeAllStreams = c.DecodeAllStreams
 	conf.WriteObjectStream = c.WriteObjectStream
@@ -81,12 +85,20 @@ func loadedConfig(c configuration, configPath string) *Configuration {
 		conf.Unit = MILLIMETRES
 	}
 
+	conf.TimestampFormat = c.TimestampFormat
+
+	conf.HeaderBufSize = c.HeaderBufSize
+
 	return &conf
 }
 
 func parseConfigFile(r io.Reader, configPath string) error {
 	var c configuration
-	bb, err := ioutil.ReadAll(r)
+
+	// Enforce default for old config files.
+	c.CheckFileNameExt = true
+
+	bb, err := io.ReadAll(r)
 	if err != nil {
 		return err
 	}
@@ -113,6 +125,16 @@ func parseConfigFile(r io.Reader, configPath string) error {
 	if !IntMemberOf(c.EncryptKeyLength, []int{40, 128, 256}) {
 		return errors.Errorf("encryptKeyLength possible values: 40, 128, 256, got: %s", c.Unit)
 	}
+
+	// TODO Disable on next release.
+	if c.HeaderBufSize == 0 {
+		c.HeaderBufSize = 100
+	}
+
+	if c.HeaderBufSize < 100 {
+		return errors.Errorf("headerBufSize must be >= 100, got: %d", c.HeaderBufSize)
+	}
+
 	loadedDefaultConfig = loadedConfig(c, configPath)
 	return nil
 }

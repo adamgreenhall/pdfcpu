@@ -33,7 +33,7 @@ var ErrInvalidUTF16BE = errors.New("pdfcpu: invalid UTF-16BE detected")
 
 // IsStringUTF16BE checks a string for Big Endian byte order BOM.
 func IsStringUTF16BE(s string) bool {
-	s1 := fmt.Sprintf("%s", s)
+	s1 := fmt.Sprint(s)
 	ok := strings.HasPrefix(s1, "\376\377") // 0xFE 0xFF
 	return ok
 }
@@ -109,7 +109,7 @@ func DecodeUTF16String(s string) (string, error) {
 	return decodeUTF16String([]byte(s))
 }
 
-func encodeUTF16String(s string) string {
+func EncodeUTF16String(s string) string {
 	rr := utf16.Encode([]rune(s))
 	bb := []byte{0xFE, 0xFF}
 	for _, r := range rr {

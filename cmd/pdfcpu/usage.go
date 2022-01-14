@@ -32,6 +32,8 @@ The commands are:
    changeopw     change owner password
    changeupw     change user password
    collect       create custom sequence of selected pages
+   config        print configuration
+   create        create PDF content via JSON
    crop          set cropbox for selected pages
    decrypt       remove password protection
    encrypt       set password protection		
@@ -77,13 +79,13 @@ common flags: -v(erbose)  ... turn on logging
                                                   cm ... centimetres
                                                   mm ... millimetres`
 
-	usageValidate = "usage: pdfcpu validate [-m(ode) strict|relaxed] [-l(inks)] inFile" + generalFlags
+	usageValidate = "usage: pdfcpu validate [-m(ode) strict|relaxed] [-l(inks)] inFile..." + generalFlags
 
 	usageLongValidate = `Check inFile for specification compliance.
 
       mode ... validation mode
      links ... check for broken links
-    inFile ... input pdf file
+    inFile ... a list of pdf input files
 		
 The validation modes are:
 
@@ -752,6 +754,9 @@ Examples: pdfcpu grid out.pdf 1 10 in.pdf
 	usagePaper     = "usage: pdfcpu paper"
 	usageLongPaper = "Print a list of supported paper sizes."
 
+	usageConfig     = "usage: pdfcpu config"
+	usageLongConfig = "Print configuration."
+
 	usageSelectedPages     = "usage: pdfcpu selectedpages"
 	usageLongSelectedPages = "Print definition of the -pages flag."
 
@@ -948,4 +953,37 @@ Examples:
     
     Example: pdfcpu images list -p "1-5" gallery.pdf
     `
+
+	usageCreate     = "usage: pdfcpu create inFileJSON [inFile] outFile" + generalFlags
+	usageLongCreate = `Create page content corresponding to declarations in inFileJSON.
+Append new page content to existing page content in inFile and write result to outFile.
+If inFile is absent outFile will be overwritten.
+
+   inFileJSON ... input json file
+   inFile     ... optional input pdf file 
+   outFile    ... output pdf file
+
+A minimalistic sample json:
+{
+	"pages": {
+		"1": {
+			"content": {
+				"text": [
+					{
+						"value": "Hello pdfcpu user!",
+						"anchor": "center",
+						"font": {
+							"name": "Helvetica",
+							"size": 12
+						}
+					}
+				]
+			}
+		}
+	}
+}
+   
+For more info on json syntax & samples please refer to :
+   pdfcpu/pkg/testdata/json/*
+   pdfcpu/pkg/samples/create/*`
 )

@@ -19,9 +19,9 @@ package pdfcpu
 import (
 	_ "embed"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pdfcpu/pdfcpu/pkg/font"
 )
@@ -106,6 +106,7 @@ const (
 	REMOVEANNOTATIONS
 	ADDBOOKMARKS
 	LISTIMAGES
+	CREATE
 )
 
 // Configuration of a Context.
@@ -113,13 +114,16 @@ type Configuration struct {
 	// Location of corresponding config.yml
 	Path string
 
+	// Check filename extensions.
+	CheckFileNameExt bool
+
 	// Enables PDF V1.5 compatible processing of object streams, xref streams, hybrid PDF files.
 	Reader15 bool
 
 	// Enables decoding of all streams (fontfiles, images..) for logging purposes.
 	DecodeAllStreams bool
 
-	// Validate against ISO-32000: strict or relaxed
+	// Validate against ISO-32000: strict or relaxed.
 	ValidationMode int
 
 	// Check for broken links in LinkedAnnotations/URIActions.
@@ -144,11 +148,11 @@ type Configuration struct {
 	// A CSV-filename holding the statistics.
 	StatsFileName string
 
-	// Supplied user password
+	// Supplied user password.
 	UserPW    string
 	UserPWNew *string
 
-	// Supplied owner password
+	// Supplied owner password.
 	OwnerPW    string
 	OwnerPWNew *string
 
@@ -160,7 +164,7 @@ type Configuration struct {
 	// AES:40,128,256 RC4:40,128
 	EncryptKeyLength int
 
-	// Supplied user access permissions, see Table 22
+	// Supplied user access permissions, see Table 22.
 	Permissions int16
 
 	// Command being executed.
@@ -168,6 +172,12 @@ type Configuration struct {
 
 	// Display unit in effect.
 	Unit DisplayUnit
+
+	// Timestamp format.
+	TimestampFormat string
+
+	// Buffersize for locating PDF header <= 100
+	HeaderBufSize int
 }
 
 // ConfigPath defines the location of pdfcpu's configuration directory.
@@ -186,10 +196,15 @@ func ensureConfigFileAt(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		f.Close()
-		if err := ioutil.WriteFile(path, configFileBytes, os.ModePerm); err != nil {
+		s := fmt.Sprintf("#############################\n# pdfcpu %s        #\n# Created: %s #\n", VersionStr, time.Now().Format("2006-01-02 15:04"))
+		bb := append([]byte(s), configFileBytes...)
+		if err := os.WriteFile(path, bb, os.ModePerm); err != nil {
 			return err
 		}
 		f, err = os.Open(path)
+		if err != nil {
+			return err
+		}
 	}
 	defer f.Close()
 	// Load configuration into loadedDefaultConfig.
@@ -218,15 +233,19 @@ func newDefaultConfiguration() *Configuration {
 	// 		cli: supply -conf disable
 	// 		api: call api.DisableConfigDir()
 	return &Configuration{
+		CheckFileNameExt:  true,
 		Reader15:          true,
 		DecodeAllStreams:  false,
 		ValidationMode:    ValidationRelaxed,
+		ValidateLinks:     false,
 		Eol:               EolLF,
 		WriteObjectStream: true,
 		WriteXRefStream:   true,
 		EncryptUsingAES:   true,
 		EncryptKeyLength:  256,
 		Permissions:       PermissionsNone,
+		TimestampFormat:   "2006-01-02 15:04",
+		HeaderBufSize:     100,
 	}
 }
 
@@ -279,6 +298,7 @@ func (c Configuration) String() string {
 	}
 	return fmt.Sprintf("pdfcpu configuration:\n"+
 		"Path:              %s\n"+
+		"CheckFileNameExt:  %t\n"+
 		"Reader15:          %t\n"+
 		"DecodeAllStreams:  %t\n"+
 		"ValidationMode:    %s\n"+
@@ -288,8 +308,11 @@ func (c Configuration) String() string {
 		"EncryptUsingAES:   %t\n"+
 		"EncryptKeyLength:  %d\n"+
 		"Permissions:       %d\n"+
-		"Unit :             %s\n",
+		"Unit :             %s\n"+
+		"TimestampFormat:	%s\n"+
+		"HeaderBufSize:		%d\n",
 		path,
+		c.CheckFileNameExt,
 		c.Reader15,
 		c.DecodeAllStreams,
 		c.ValidationModeString(),
@@ -299,7 +322,10 @@ func (c Configuration) String() string {
 		c.EncryptUsingAES,
 		c.EncryptKeyLength,
 		c.Permissions,
-		c.UnitString())
+		c.UnitString(),
+		c.TimestampFormat,
+		c.HeaderBufSize,
+	)
 }
 
 // EolString returns a string rep for the eol in effect.

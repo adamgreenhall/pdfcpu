@@ -610,7 +610,12 @@ func validateStructTreeRootDictEntryParentTree(xRefTable *pdf.XRefTable, ir *pdf
 		}
 	}
 
-	_, _, err := validateNumberTree(xRefTable, "StructTree", *ir, true)
+	d, err := xRefTable.DereferenceDict(*ir)
+	if err != nil {
+		return err
+	}
+
+	_, _, err = validateNumberTree(xRefTable, "StructTree", d, true)
 	return err
 }
 
@@ -639,9 +644,11 @@ func validateStructTreeRootDict(xRefTable *pdf.XRefTable, d pdf.Dict) error {
 		if err != nil {
 			return err
 		}
-		_, _, _, err = validateNameTree(xRefTable, "IDTree", d, true)
-		if err != nil {
-			return err
+		if len(d) > 0 {
+			_, _, _, err = validateNameTree(xRefTable, "IDTree", d, true)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

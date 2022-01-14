@@ -657,8 +657,12 @@ func validateTextMarkupAnnotation(xRefTable *pdf.XRefTable, d pdf.Dict, dictName
 
 	// see 12.5.6.10
 
+	required := REQUIRED
+	if xRefTable.ValidationMode == pdf.ValidationRelaxed {
+		required = OPTIONAL
+	}
 	// QuadPoints, required, number array, len: a multiple of 8
-	_, err := validateNumberArrayEntry(xRefTable, d, dictName, "QuadPoints", REQUIRED, pdf.V10, func(a pdf.Array) bool { return len(a)%8 == 0 })
+	_, err := validateNumberArrayEntry(xRefTable, d, dictName, "QuadPoints", required, pdf.V10, func(a pdf.Array) bool { return len(a)%8 == 0 })
 
 	return err
 }
@@ -1315,7 +1319,8 @@ func validateEntryP(xRefTable *pdf.XRefTable, d pdf.Dict, dictName string, requi
 	}
 
 	if d1 == nil {
-		return errors.Errorf("validateEntryP: entry \"P\" (obj#%d) is nil", ir.ObjectNumber)
+		d.Delete("P")
+		return nil
 	}
 
 	_, err = validateNameEntry(xRefTable, d1, "pageDict", "Type", REQUIRED, pdf.V10, func(s string) bool { return s == "Page" })

@@ -221,9 +221,7 @@ func (ctx *Context) addPermissionsToInfoDigest(ss *[]string) {
 		*ss = append(*ss, fmt.Sprintf("%20s: %s", "Permissions", l[0]))
 	} else {
 		*ss = append(*ss, fmt.Sprintf("%20s:", "Permissions"))
-		for _, s := range l {
-			*ss = append(*ss, s)
-		}
+		*ss = append(*ss, l...)
 	}
 }
 
@@ -387,6 +385,7 @@ type OptimizationContext struct {
 	// Font section
 	PageFonts         []IntSet            // For each page a registry of font object numbers.
 	FontObjects       map[int]*FontObject // FontObject lookup table by font object number.
+	FormFontObjects   map[int]*FontObject // FormFontObject lookup table by font object number.
 	Fonts             map[string][]int    // All font object numbers registered for a font name.
 	DuplicateFonts    map[int]Dict        // Registry of duplicate font dicts.
 	DuplicateFontObjs IntSet              // The set of objects that represents the union of the object graphs of all duplicate font dicts.
@@ -407,6 +406,7 @@ type OptimizationContext struct {
 func newOptimizationContext() *OptimizationContext {
 	return &OptimizationContext{
 		FontObjects:          map[int]*FontObject{},
+		FormFontObjects:      map[int]*FontObject{},
 		Fonts:                map[string][]int{},
 		DuplicateFonts:       map[int]Dict{},
 		DuplicateFontObjs:    IntSet{},
@@ -534,7 +534,7 @@ func (oc *OptimizationContext) collectFontInfo(logStr []string) []string {
 	}
 
 	// Log all fonts sorted by object number.
-	logStr = append(logStr, fmt.Sprintf("\nFontobjects:\n"))
+	logStr = append(logStr, "\nFontobjects:\n")
 	logStr = append(logStr, fontHeader)
 
 	var objectNumbers []int
@@ -549,7 +549,7 @@ func (oc *OptimizationContext) collectFontInfo(logStr []string) []string {
 	}
 
 	// Log all fonts sorted by fontname.
-	logStr = append(logStr, fmt.Sprintf("\nFonts:\n"))
+	logStr = append(logStr, "\nFonts:\n")
 	logStr = append(logStr, fontHeader)
 
 	var fontNames []string
@@ -565,7 +565,7 @@ func (oc *OptimizationContext) collectFontInfo(logStr []string) []string {
 		}
 	}
 
-	logStr = append(logStr, fmt.Sprintf("\nDuplicate Fonts:\n"))
+	logStr = append(logStr, "\nDuplicate Fonts:\n")
 
 	// Log any duplicate fonts.
 	if len(oc.DuplicateFonts) > 0 {
@@ -621,7 +621,7 @@ func (oc *OptimizationContext) collectImageInfo(logStr []string) []string {
 	}
 
 	// Log all images sorted by object number.
-	logStr = append(logStr, fmt.Sprintf("\nImageobjects:\n"))
+	logStr = append(logStr, "\nImageobjects:\n")
 	logStr = append(logStr, imageHeader)
 
 	var objectNumbers []int
@@ -635,7 +635,7 @@ func (oc *OptimizationContext) collectImageInfo(logStr []string) []string {
 		logStr = append(logStr, fmt.Sprintf("#%-6d %s\n", objectNumber, imageObject.ResourceNamesString()))
 	}
 
-	logStr = append(logStr, fmt.Sprintf("\nDuplicate Images:\n"))
+	logStr = append(logStr, "\nDuplicate Images:\n")
 
 	// Log any duplicate images.
 	if len(oc.DuplicateImages) > 0 {

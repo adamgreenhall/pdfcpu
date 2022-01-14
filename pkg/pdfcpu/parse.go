@@ -134,7 +134,7 @@ func hexString(s string) (*string, bool) {
 	i := 0
 
 	for _, c := range strings.ToUpper(s) {
-		if strings.IndexRune(" \x09\x0A\x0C\x0D", c) >= 0 {
+		if strings.ContainsRune(" \x09\x0A\x0C\x0D", c) {
 			if i%2 > 0 {
 				sb.WriteString("0")
 				i = 0
@@ -221,11 +221,12 @@ func delimiter(b byte) bool {
 
 // parseObjectAttributes parses object number and generation of the next object for given string buffer.
 func parseObjectAttributes(line *string) (objectNumber *int, generationNumber *int, err error) {
-	log.Parse.Printf("ParseObjectAttributes: buf=<%s>\n", *line)
 
 	if line == nil || len(*line) == 0 {
 		return nil, nil, errors.New("pdfcpu: ParseObjectAttributes: buf not available")
 	}
+
+	log.Parse.Printf("ParseObjectAttributes: buf=<%s>\n", *line)
 
 	l := *line
 	var remainder string
@@ -513,8 +514,7 @@ func processDictKeys(line *string, relaxed bool) (Dict, error) {
 			return nil, errDictionaryNotTerminated
 		}
 
-		// A friendly 🤢 to the devs of the Kdan Pocket Scanner for the iPad.
-		// Hack for #252:
+		// Fix for #252:
 		// For dicts with kv pairs terminated by eol we accept a missing value as an empty string.
 		if eol {
 			obj := StringLiteral("")
@@ -533,10 +533,11 @@ func processDictKeys(line *string, relaxed bool) (Dict, error) {
 		// Specifying the null object as the value of a dictionary entry (7.3.7, "Dictionary Objects")
 		// shall be equivalent to omitting the entry entirely.
 		if obj != nil {
-			log.Parse.Printf("ParseDict: dict[%s]=%v\n", key, obj)
-			if ok := d.Insert(string(*key), obj); !ok {
-				return nil, errDictionaryDuplicateKey
-			}
+			d.Insert(string(*key), obj)
+			//log.Parse.Printf("ParseDict: dict[%s]=%v\n", key, obj)
+			// if ok := d.Insert(string(*key), obj); !ok {
+			// 	return nil, errDictionaryDuplicateKey
+			// }
 		}
 
 		// we are positioned on the char behind the last parsed dict value.
@@ -633,6 +634,15 @@ func startParseNumericOrIndRef(l string) (string, string, int) {
 	return str, l1, i1
 }
 
+func isRangeError(err error) bool {
+	if err, ok := err.(*strconv.NumError); ok {
+		if err.Err == strconv.ErrRange {
+			return true
+		}
+	}
+	return false
+}
+
 func parseNumericOrIndRef(line *string) (Object, error) {
 	if noBuf(line) {
 		return nil, errBufNotAvailable
@@ -646,25 +656,38 @@ func parseNumericOrIndRef(line *string) (Object, error) {
 	str, l1, i1 := startParseNumericOrIndRef(l)
 
 	// Try int
+	var rangeErr bool
 	i, err := strconv.Atoi(str)
 	if err != nil {
 
-		// Try float
-		f, err := strconv.ParseFloat(str, 64)
-		if err != nil {
-			return nil, err
+		rangeErr = isRangeError(err)
+		if !rangeErr {
+
+			// Try float
+			f, err := strconv.ParseFloat(str, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			// We have a Float!
+			log.Parse.Printf("parseNumericOrIndRef: value is numeric float: %f\n", f)
+			*line = l1
+			return Float(f), nil
 		}
 
-		// We have a Float!
-		log.Parse.Printf("parseNumericOrIndRef: value is numeric float: %f\n", f)
-		*line = l1
-		return Float(f), nil
+		// #407
+		i = 0
 	}
 
 	// We have an Int!
 
 	// if not followed by whitespace return sole integer value.
 	if i1 <= 0 || delimiter(l[i1]) {
+
+		if rangeErr {
+			return nil, err
+		}
+
 		log.Parse.Printf("parseNumericOrIndRef: value is numeric int: %d\n", i)
 		*line = l1
 		return Integer(i), nil
@@ -679,6 +702,9 @@ func parseNumericOrIndRef(line *string) (Object, error) {
 	l, _ = trimLeftSpace(l, false)
 	if len(l) == 0 {
 		// only whitespace
+		if rangeErr {
+			return nil, err
+		}
 		*line = l1
 		return Integer(i), nil
 	}
@@ -688,6 +714,9 @@ func parseNumericOrIndRef(line *string) (Object, error) {
 	// if only 2 token, can't be indirect reference.
 	// if not followed by whitespace return sole integer value.
 	if i2 <= 0 || delimiter(l[i2]) {
+		if rangeErr {
+			return nil, err
+		}
 		log.Parse.Printf("parseNumericOrIndRef: 2 objects => value is numeric int: %d\n", i)
 		*line = l1
 		return Integer(i), nil
@@ -714,15 +743,25 @@ func parseNumericOrIndRef(line *string) (Object, error) {
 	l, _ = trimLeftSpace(l, false)
 
 	if len(l) == 0 {
+		if rangeErr {
+			return nil, err
+		}
 		// only whitespace
-		l = l1
+		*line = l1
 		return Integer(i), nil
 	}
 
 	if l[0] == 'R' {
-		// We have all 3 components to create an indirect reference.
 		*line = forwardParseBuf(l, 1)
+		if rangeErr {
+			return nil, nil
+		}
+		// We have all 3 components to create an indirect reference.
 		return *NewIndirectRef(iref1, iref2), nil
+	}
+
+	if rangeErr {
+		return nil, err
 	}
 
 	// 'R' not available.
