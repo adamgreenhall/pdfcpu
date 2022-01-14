@@ -92,6 +92,12 @@ func (m nUpParamMap) Handle(paramPrefix, paramValueStr string, nup *NUp) error {
 	return m[param](paramValueStr, nup)
 }
 
+type BorderStyling struct {
+	Color     *SimpleColor
+	LineStyle *LineJoinStyle
+	Width     float64
+}
+
 // NUp represents the command details for the command "NUp".
 type NUp struct {
 	PageDim         *Dim           // Page dimensions in display unit.
@@ -103,7 +109,7 @@ type NUp struct {
 	ImgInputFile    bool           // Process image or PDF input files.
 	Margin          int            // Cropbox for n-Up content.
 	Border          bool           // Draw bounding box around box and margin.
-	BorderOnCropbox bool           // Draw bounding box around crop box.
+	BorderOnCropbox *BorderStyling // Draw bounding box around crop box.
 	BookletGuides   bool           // Draw folding and cutting lines.
 	MultiFolio      bool           // Render booklet as sequence of folios.
 	FolioSize       int            // Booklet multifolio folio size: default: 8
@@ -216,16 +222,55 @@ func parseElementBorder(s string, nup *NUp) error {
 }
 
 func parseElementBorderOnCropbox(s string, nup *NUp) error {
-	switch strings.ToLower(s) {
-	case "on", "true", "t":
-		nup.BorderOnCropbox = true
-	case "off", "false", "f":
-		nup.BorderOnCropbox = false
-	default:
-		return errors.New("pdfcpu: nUp borderOnCropbox, please provide one of: on/off true/false t/f")
+	// w
+	// w r g b
+	// w #c
+	// w round
+	// w round r g b
+	// w round #c
+
+	var err error
+
+	b := strings.Split(s, " ")
+	if len(b) == 0 || len(b) > 5 {
+		return errors.Errorf("pdfcpu: borders: need 1,2,3,4 or 5 int values, %s\n", s)
 	}
 
-	return nil
+	switch b[0] {
+	case "off", "false", "f":
+		return nil
+	case "on", "true", "t":
+		nup.BorderOnCropbox = &BorderStyling{Width: 1}
+		return nil
+	}
+
+	nup.BorderOnCropbox = &BorderStyling{}
+	width, err := strconv.ParseFloat(b[0], 64)
+	if err != nil {
+		return err
+	}
+	if width == 0 {
+		return errors.New("pdfcpu: borders: need width > 0")
+	}
+	nup.BorderOnCropbox.Width = width
+
+	if len(b) == 1 {
+		return nil
+	}
+	if strings.HasPrefix("round", b[1]) {
+		style := LJRound
+		nup.BorderOnCropbox.LineStyle = &style
+		if len(b) == 2 {
+			return nil
+		}
+		c, err := ParseColor(strings.Join(b[2:], " "))
+		nup.BorderOnCropbox.Color = &c
+		return err
+	}
+
+	c, err := ParseColor(strings.Join(b[1:], " "))
+	nup.BorderOnCropbox.Color = &c
+	return err
 }
 
 func parseBookletGuides(s string, nup *NUp) error {
@@ -566,12 +611,6 @@ func BestFitRectIntoRect(rSrc, rDest *Rectangle, enforceOrient bool) (w, h, dx, 
 	return
 }
 
-func drawBorder(wr io.Writer, r *Rectangle) {
-	fmt.Fprintf(wr, "[]0 d 0.1 w %.2f %.2f m %.2f %.2f l %.2f %.2f l %.2f %.2f l s ",
-		r.LL.X, r.LL.Y, r.UR.X, r.LL.Y, r.UR.X, r.UR.Y, r.LL.X, r.UR.Y,
-	)
-}
-
 func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup *NUp, rotate, enforceOrient bool) {
 
 	// rScr is a rectangular region represented by form formResID in form space.
@@ -641,18 +680,24 @@ func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup
 	// Apply transform matrix and display form.
 	fmt.Fprintf(wr, "q %.2f %.2f %.2f %.2f %.2f %.2f cm /%s Do Q ",
 		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1], formResID)
+
+	// draw border(s)
 	if nup.Border {
-		drawBorder(wr, rDest)
+		DrawRect(wr, rDest, 0.1, nil, nil)
 	}
-	if nup.BorderOnCropbox {
+	if nup.BorderOnCropbox != nil {
 		ll := m.Transform(Point(rSrc.LL))
 		ur := m.Transform(Point(rSrc.UR))
 		rSrcTransformed := Rect(
 			ll.X, ll.Y, ur.X, ur.Y,
 		)
-		drawBorder(wr, rSrcTransformed)
+		DrawRect(
+			wr, rSrcTransformed,
+			nup.BorderOnCropbox.Width,
+			nup.BorderOnCropbox.Color,
+			nup.BorderOnCropbox.LineStyle,
+		)
 	}
-
 }
 
 func nUpImagePDFBytes(w io.Writer, imgWidth, imgHeight int, nup *NUp, formResID string) {
