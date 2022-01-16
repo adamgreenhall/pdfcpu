@@ -110,6 +110,7 @@ type NUp struct {
 	Margin          int            // Cropbox for n-Up content.
 	Border          bool           // Draw bounding box around box and margin.
 	BorderOnCropbox *BorderStyling // Draw bounding box around crop box.
+	PageLabelText   map[int]string // Add text stamp to page
 	BookletGuides   bool           // Draw folding and cutting lines.
 	MultiFolio      bool           // Render booklet as sequence of folios.
 	FolioSize       int            // Booklet multifolio folio size: default: 8
@@ -611,7 +612,7 @@ func BestFitRectIntoRect(rSrc, rDest *Rectangle, enforceOrient bool) (w, h, dx, 
 	return
 }
 
-func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup *NUp, rotate, enforceOrient bool) {
+func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup *NUp, rotate, enforceOrient bool) *Rectangle {
 
 	// rScr is a rectangular region represented by form formResID in form space.
 
@@ -682,15 +683,15 @@ func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup
 		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1], formResID)
 
 	// draw border(s)
+	ll := m.Transform(Point(rSrc.LL))
+	ur := m.Transform(Point(rSrc.UR))
+	rSrcTransformed := Rect(
+		ll.X, ll.Y, ur.X, ur.Y,
+	)
 	if nup.Border {
 		DrawRect(wr, rDest, 0.1, nil, nil)
 	}
 	if nup.BorderOnCropbox != nil {
-		ll := m.Transform(Point(rSrc.LL))
-		ur := m.Transform(Point(rSrc.UR))
-		rSrcTransformed := Rect(
-			ll.X, ll.Y, ur.X, ur.Y,
-		)
 		DrawRect(
 			wr, rSrcTransformed,
 			nup.BorderOnCropbox.Width,
@@ -698,6 +699,7 @@ func nUpTilePDFBytes(wr io.Writer, rSrc, rDest *Rectangle, formResID string, nup
 			nup.BorderOnCropbox.LineStyle,
 		)
 	}
+	return rSrcTransformed
 }
 
 func nUpImagePDFBytes(w io.Writer, imgWidth, imgHeight int, nup *NUp, formResID string) {
@@ -1068,7 +1070,26 @@ func (ctx *Context) nUpTilePDFBytesForPDF(
 	formsResDict.Insert(formResID, *formIndRef)
 
 	// Append to content stream buf of destination page.
-	nUpTilePDFBytes(buf, cropBox, rDest, formResID, nup, rotate, true)
+	pageRect := nUpTilePDFBytes(buf, cropBox, rDest, formResID, nup, rotate, true)
+	if nup.PageLabelText != nil {
+		if text, ok := nup.PageLabelText[pageNr]; ok {
+			wm := DefaultWatermarkConfig()
+			setTextWatermark(text, wm)
+			wm.Pos = BottomLeft
+			wm.OnTop = true
+			wm.Diagonal = NoDiagonal
+			wm.UserRotOrDiagonal = false
+			// wm.Dx = int(pageRect.LL.X + pageRect.Width()/2)
+			// wm.Dy = int(pageRect.LL.Y) + wm.MTop // plus font height
+			wm.Dx = 10
+			wm.Dy = 10
+			sheetNumber := pageNr / nup.N()
+			fmt.Println(sheetNumber+1, pageNr, wm.TextLines[0], wm.Dx, wm.Dy, pageRect)
+			m := make(map[int]*Watermark)
+			m[sheetNumber+1] = wm
+			ctx.AddWatermarksMap(m)
+		}
+	}
 
 	return nil
 }
