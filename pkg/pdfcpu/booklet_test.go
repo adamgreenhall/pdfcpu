@@ -128,9 +128,9 @@ var bookletTestCases = []pageOrderResults{
 		pageCount: 16,
 		expectedPageOrder: []int{
 			1, 3, 5, 7,
-			2, 4, 6, 8,
+			4, 2, 8, 6,
 			9, 11, 13, 15,
-			10, 12, 14, 16,
+			12, 10, 16, 14,
 		},
 		papersize:   "A6", // portrait, long-edge binding
 		bookletType: "perfectbound",
@@ -142,7 +142,7 @@ var bookletTestCases = []pageOrderResults{
 		pageCount: 12,
 		expectedPageOrder: []int{
 			1, 3, 5, 7, 9, 11,
-			2, 4, 6, 8, 10, 12,
+			4, 2, 8, 6, 12, 10,
 		},
 		papersize:   "A6", // portrait, long-edge binding
 		bookletType: "perfectbound",

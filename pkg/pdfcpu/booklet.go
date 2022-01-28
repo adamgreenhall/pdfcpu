@@ -377,7 +377,16 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 	} else {
 		// back side
 		p = bookletSheetNumber*twoN + 2*((positionNumber-n)%twoN) + 2
-		rotate = nup.isTopFoldBinding()
+		if n == 4 || n == 6 {
+			// mirror left and right sides to account for the page handling flip (no duplex)
+			// TODO: 8up
+			if positionNumber%2 == 0 { // left side
+				p += 2
+			} else { // right side
+				p -= 2
+			}
+		}
+		rotate = n == 2 || nup.isTopFoldBinding()
 	}
 	return getPageNumber(pageNumbers, p-1), rotate // p is one-indexed and we want zero-indexed
 }
