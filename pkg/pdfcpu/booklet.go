@@ -379,14 +379,14 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 		p = bookletSheetNumber*twoN + 2*((positionNumber-N)%twoN) + 2
 		if N == 4 || N == 6 {
 			// TODO: 8up
-			if N == 4 && nup.PageDim.Landscape() {
+			if N == 4 && nup.PageDim.Landscape() { // landscape pages on portrait sheets
 				// flip top and bottom rows to account for landscape rotation and the page handling flip (short edge flip, no duplex)
 				if positionNumber%N < 2 { // top side
 					p += 4
 				} else { // bottom side
 					p -= 4
 				}
-			} else {
+			} else { // portrait pages on portrait sheets
 				// flip left and right columns to account for the page handling flip (short edge flip, no duplex)
 				if positionNumber%2 == 0 { // left side
 					p += 2
