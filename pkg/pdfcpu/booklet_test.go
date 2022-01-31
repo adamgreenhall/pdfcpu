@@ -6,6 +6,7 @@ import (
 )
 
 type pageOrderResults struct {
+	id                string
 	nup               int
 	pageCount         int
 	expectedPageOrder []int
@@ -17,6 +18,7 @@ type pageOrderResults struct {
 var bookletTestCases = []pageOrderResults{
 	// classic (booklet) test cases
 	{
+		id:        "portrait long edge",
 		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
@@ -28,6 +30,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
+		id:        "landscape short edge",
 		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
@@ -40,6 +43,7 @@ var bookletTestCases = []pageOrderResults{
 	},
 	// topfold test cases
 	{
+		id:        "topfold portrait",
 		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
@@ -51,6 +55,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "short",
 	},
 	{
+		id:        "topfold landscape",
 		nup:       4,
 		pageCount: 8,
 		expectedPageOrder: []int{
@@ -62,6 +67,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
+		id:        "topfold portrait multisheet",
 		nup:       4,
 		pageCount: 16,
 		expectedPageOrder: []int{
@@ -76,6 +82,7 @@ var bookletTestCases = []pageOrderResults{
 	},
 	// 6up test
 	{
+		id:        "6up",
 		nup:       6,
 		pageCount: 12,
 		expectedPageOrder: []int{
@@ -87,6 +94,7 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
+		id:        "6up multisheet",
 		nup:       6,
 		pageCount: 24,
 		expectedPageOrder: []int{
@@ -99,26 +107,83 @@ var bookletTestCases = []pageOrderResults{
 		bookletType: "booklet",
 		binding:     "long",
 	},
+	// perfect bound
+	{
+		id:        "perfect bound 2up",
+		nup:       2,
+		pageCount: 8,
+		expectedPageOrder: []int{
+			1, 3,
+			2, 4,
+			5, 7,
+			6, 8,
+		},
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "perfectbound",
+		binding:     "long",
+	},
+	{
+		id:        "perfect bound 4up",
+		nup:       4,
+		pageCount: 16,
+		expectedPageOrder: []int{
+			1, 3, 5, 7,
+			4, 2, 8, 6,
+			9, 11, 13, 15,
+			12, 10, 16, 14,
+		},
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "perfectbound",
+		binding:     "long",
+	},
+	{
+		id:        "perfect bound 4up landscape short-edge",
+		nup:       4,
+		pageCount: 16,
+		expectedPageOrder: []int{
+			1, 3, 5, 7,
+			6, 8, 2, 4,
+			9, 11, 13, 15,
+			14, 16, 10, 12,
+		},
+		papersize:   "A6L", // landscape, short-edge binding
+		bookletType: "perfectbound",
+		binding:     "short",
+	},
+	{
+		id:        "perfect bound 6up",
+		nup:       6,
+		pageCount: 12,
+		expectedPageOrder: []int{
+			1, 3, 5, 7, 9, 11,
+			4, 2, 8, 6, 12, 10,
+		},
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "perfectbound",
+		binding:     "long",
+	},
 }
 
 func TestBookletPageOrder(t *testing.T) {
 	for _, test := range bookletTestCases {
-		nup, err := PDFBookletConfig(test.nup, fmt.Sprintf("papersize:%s, btype:%s, binding: %s", test.papersize, test.bookletType, test.binding))
-		if err != nil {
-			t.Fatal(err)
-		}
-		pageNumbers := make(map[int]bool)
-		for i := 0; i < test.pageCount; i++ {
-			pageNumbers[i+1] = true
-		}
-		pageOrder := make([]int, test.pageCount)
-		for i, p := range sortSelectedPagesForBooklet(pageNumbers, nup) {
-			pageOrder[i] = p.number
-		}
-		for i, expected := range test.expectedPageOrder {
-			if pageOrder[i] != expected {
-				t.Fatal("unexpected page order for test=", test, "\nexpected:", test.expectedPageOrder, "\ngot:", pageOrder)
+		t.Run(test.id, func(t *testing.T) {
+			nup, err := PDFBookletConfig(test.nup, fmt.Sprintf("papersize:%s, btype:%s, binding: %s", test.papersize, test.bookletType, test.binding))
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
+			pageNumbers := make(map[int]bool)
+			for i := 0; i < test.pageCount; i++ {
+				pageNumbers[i+1] = true
+			}
+			pageOrder := make([]int, test.pageCount)
+			for i, p := range sortSelectedPagesForBooklet(pageNumbers, nup) {
+				pageOrder[i] = p.number
+			}
+			for i, expected := range test.expectedPageOrder {
+				if pageOrder[i] != expected {
+					t.Fatal("incorrect page order\nexpected:", test.expectedPageOrder, "\ngot:", pageOrder)
+				}
+			}
+		})
 	}
 }

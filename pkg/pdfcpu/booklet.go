@@ -30,6 +30,7 @@ type bookletType int
 // These are the types of booklet layouts
 const (
 	Booklet bookletType = iota
+	BookletPerfectBound
 	BookletCover
 	BookletCoverFullSpan
 )
@@ -39,7 +40,8 @@ func (b bookletType) String() string {
 
 	case Booklet:
 		return "booklet"
-
+	case BookletPerfectBound:
+		return "booklet perfect bound"
 	case BookletCover:
 		return "booklet cover"
 
@@ -114,6 +116,9 @@ func PDFBookletConfig(val int, desc string) (*NUp, error) {
 	}
 	if nup.BookletType == BookletCoverFullSpan && val != 2 {
 		return nup, errInvalidBookletCoverFullGridID
+	}
+	if nup.BookletType == BookletPerfectBound && !(val == 2 || val == 4 || val == 6) {
+		return nup, errInvalidBookletGridID
 	}
 	return nup, nil
 }
@@ -356,6 +361,46 @@ func nup6OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int,
 	return pageNr, false
 }
 
+func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
+	// input: positionNumber
+	// output: original page number and rotation
+	var p int
+	var rotate bool
+	N := nup.N()
+	twoN := N * 2
+
+	bookletSheetSideNumber := positionNumber / N
+	bookletSheetNumber := positionNumber / twoN
+	if bookletSheetSideNumber%2 == 0 {
+		// front side
+		p = bookletSheetNumber*twoN + 2*(positionNumber%twoN) + 1
+	} else {
+		// back side
+		p = bookletSheetNumber*twoN + 2*((positionNumber-N)%twoN) + 2
+		if N == 4 || N == 6 {
+			// TODO: 8up
+			if N == 4 && nup.PageDim.Landscape() { // landscape pages on portrait sheets
+				// flip top and bottom rows to account for landscape rotation and the page handling flip (short edge flip, no duplex)
+				if positionNumber%N < 2 { // top side
+					p += 4
+				} else { // bottom side
+					p -= 4
+				}
+			} else { // portrait pages on portrait sheets
+				// flip left and right columns to account for the page handling flip (short edge flip, no duplex)
+				if positionNumber%2 == 0 { // left side
+					p += 2
+				} else { // right side
+					p -= 2
+				}
+			}
+		}
+		// account for page handling flip (short edge flip, no duplex)
+		rotate = N == 2 || nup.PageDim.Landscape()
+	}
+	return getPageNumber(pageNumbers, p-1), rotate // p is one-indexed and we want zero-indexed
+}
+
 func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 	pageNumbers := sortSelectedPages(pages)
 	pageCount := len(pageNumbers)
@@ -404,6 +449,12 @@ func sortSelectedPagesForBooklet(pages IntSet, nup *NUp) []bookletPage {
 				bookletPages[i].number = pageNr
 				bookletPages[i].rotate = rotate
 			}
+		}
+	case BookletPerfectBound:
+		for i := 0; i < pageCount; i++ {
+			pageNr, rotate := nupPerfectBound(i, pageCount, pageNumbers, nup)
+			bookletPages[i].number = pageNr
+			bookletPages[i].rotate = rotate
 		}
 	case BookletCover:
 		// covers can have either one (front) or two pages (front and back).
