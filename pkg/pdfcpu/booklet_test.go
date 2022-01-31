@@ -137,6 +137,20 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
+		id:        "perfect bound 4up landscape short-edge",
+		nup:       4,
+		pageCount: 16,
+		expectedPageOrder: []int{
+			1, 3, 5, 7,
+			6, 8, 2, 4,
+			9, 11, 13, 15,
+			14, 16, 10, 12,
+		},
+		papersize:   "A6L", // landscape, short-edge binding
+		bookletType: "perfectbound",
+		binding:     "short",
+	},
+	{
 		id:        "perfect bound 6up",
 		nup:       6,
 		pageCount: 12,
@@ -167,7 +181,7 @@ func TestBookletPageOrder(t *testing.T) {
 			}
 			for i, expected := range test.expectedPageOrder {
 				if pageOrder[i] != expected {
-					t.Fatal("unexpected page order\nexpected:", test.expectedPageOrder, "\ngot:", pageOrder)
+					t.Fatal("incorrect page order\nexpected:", test.expectedPageOrder, "\ngot:", pageOrder)
 				}
 			}
 		})
