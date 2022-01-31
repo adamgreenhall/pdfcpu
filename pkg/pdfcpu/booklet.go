@@ -117,7 +117,7 @@ func PDFBookletConfig(val int, desc string) (*NUp, error) {
 	if nup.BookletType == BookletCoverFullSpan && val != 2 {
 		return nup, errInvalidBookletCoverFullGridID
 	}
-	if nup.BookletType == BookletPerfectBound && val%2 == 1 {
+	if nup.BookletType == BookletPerfectBound && !(val == 2 || val == 4 || val == 6) {
 		return nup, errInvalidBookletGridID
 	}
 	return nup, nil
