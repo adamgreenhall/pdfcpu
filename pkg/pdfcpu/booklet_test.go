@@ -44,7 +44,7 @@ var bookletTestCases = []pageOrderResults{
 		bookletType: "booklet",
 		binding:     "short",
 	},
-	// basic booklet sidefold test cases
+	// basic booklet topfold test cases
 	{
 		id:        "booklet topfold portrait",
 		nup:       4,
@@ -93,45 +93,6 @@ var bookletTestCases = []pageOrderResults{
 			6, 3, 7, 2, // this is ordered differently from the portrait layout (because of differences in how duplexing works)
 		},
 		papersize:   "A5L", // landscape, short-edge binding
-		bookletType: "bookletadvanced",
-		binding:     "short",
-	},
-	// advanced booklet topfold test cases
-	{
-		id:        "advanced topfold portrait",
-		nup:       4,
-		pageCount: 8,
-		expectedPageOrder: []int{
-			8, 3, 1, 6,
-			4, 7, 5, 2,
-		},
-		papersize:   "A5", // portrait, short-edge binding
-		bookletType: "bookletadvanced",
-		binding:     "short",
-	},
-	{
-		id:        "advanced topfold landscape",
-		nup:       4,
-		pageCount: 8,
-		expectedPageOrder: []int{
-			8, 3, 1, 6,
-			2, 5, 7, 4, // this is 180degrees flipped from the portrait layout (because of differences in how duplexing works)
-		},
-		papersize:   "A5L", // landscape, long-edge binding
-		bookletType: "bookletadvanced",
-		binding:     "long",
-	},
-	{
-		id:        "advanced topfold portrait multisheet",
-		nup:       4,
-		pageCount: 16,
-		expectedPageOrder: []int{
-			16, 3, 1, 14,
-			4, 15, 13, 2,
-			12, 7, 5, 10,
-			8, 11, 9, 6,
-		},
-		papersize:   "A5", // portrait, short-edge binding
 		bookletType: "bookletadvanced",
 		binding:     "short",
 	},

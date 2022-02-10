@@ -76,6 +76,7 @@ var (
 	errInvalidBookletGridID          = errors.New("pdfcpu booklet: n must be one of 2, 4, 6")
 	errInvalidBookletCoverGridID     = errors.New("pdfcpu booklet cover: n must be one of 2, 4")
 	errInvalidBookletCoverFullGridID = errors.New("pdfcpu booklet cover full-span: n must 2")
+	errInvalidBookletAdvanced        = errors.New("pdfcpu booklet advanced cannot have binding along the top (portrait short-edge, landscape long-edge). use plain booklet instead.")
 )
 
 // DefaultBookletConfig returns the default configuration for a booklet
@@ -105,6 +106,7 @@ func PDFBookletConfig(val int, desc string) (*NUp, error) {
 	if nup.isBooklet() && !(val == 2 || val == 4 || val == 6) {
 		return nup, errInvalidBookletGridID
 	}
+	// 6up special cases
 	if nup.isBooklet() && val == 6 && nup.isTopFoldBinding() {
 		// you can't top fold a 6up with 3 rows
 		return nup, errInvalidBookletGridID
@@ -113,14 +115,20 @@ func PDFBookletConfig(val int, desc string) (*NUp, error) {
 		// TODO: support this
 		return nup, errInvalidBookletGridID
 	}
+	// covers
 	if nup.BookletType == BookletCover && !(val == 2 || val == 4) {
 		return nup, errInvalidBookletCoverGridID
 	}
 	if nup.BookletType == BookletCoverFullSpan && val != 2 {
 		return nup, errInvalidBookletCoverFullGridID
 	}
+	// perfect bound
 	if nup.BookletType == BookletPerfectBound && !(val == 2 || val == 4 || val == 6) {
 		return nup, errInvalidBookletGridID
+	}
+	// bookletadvanced
+	if nup.BookletType == BookletAdvanced && val == 4 && nup.isTopFoldBinding() {
+		return nup, errInvalidBookletAdvanced
 	}
 	return nup, nil
 }
@@ -264,12 +272,7 @@ func nup4OutputPageNr(inputPageNr int, pageCount int, pageNumbers []int, nup *NU
 	case BookletAdvanced:
 		// advanced booklets have a different collation pattern: collect the top of each sheet and then the bottom of each sheet.
 		// this allows printers to fold the sheets twice and then cut along one of the folds.
-		if nup.isTopFoldBinding() {
-			return nup4AdvancedTopFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
-		} else {
-			// (output page, input page) = [(1,n), (2,1), (3, n/2+1), (4, n/2-0), (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2) ...]
-			return nup4AdvancedSideFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
-		}
+		return nup4AdvancedSideFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
 	}
 	return 0, false
 }
@@ -353,6 +356,7 @@ func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNu
 }
 
 func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
+	// (output page, input page) = [(1,n), (2,1), (3, n/2+1), (4, n/2-0), (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2) ...]
 	bookletPageNumber := inputPageNr / 4
 	var p int
 	if bookletPageNumber%2 == 0 {
@@ -385,44 +389,6 @@ func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, pageN
 	// Rotate bottom row of each output page by 180 degrees.
 	var rotate bool
 	if inputPageNr%4 >= 2 {
-		rotate = true
-	}
-	return pageNr, rotate
-}
-
-func nup4AdvancedTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
-	var p int
-	bookletSheetSideNumber := positionNumber / 4
-	bookletSheetNumber := positionNumber / 8
-	if bookletSheetSideNumber%2 == 0 {
-		// front side
-		switch positionNumber % 4 {
-		case 0:
-			p = inputPageCount - 4*bookletSheetNumber
-		case 1:
-			p = 3 + 4*bookletSheetNumber
-		case 2:
-			p = 1 + 4*bookletSheetNumber
-		case 3:
-			p = inputPageCount - 2 - 4*bookletSheetNumber
-		}
-	} else {
-		// back side
-		switch get4upPos(positionNumber, nup.PageDim.Landscape()) {
-		case 0:
-			p = 4 + 4*bookletSheetNumber
-		case 1:
-			p = inputPageCount - 1 - 4*bookletSheetNumber
-		case 2:
-			p = inputPageCount - 3 - 4*bookletSheetNumber
-		case 3:
-			p = 2 + 4*bookletSheetNumber
-		}
-	}
-	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
-	// Rotate right side of output page by 180 degrees.
-	var rotate bool
-	if positionNumber%2 == 1 {
 		rotate = true
 	}
 	return pageNr, rotate
