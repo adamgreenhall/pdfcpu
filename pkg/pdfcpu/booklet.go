@@ -257,7 +257,7 @@ func nup4OutputPageNr(inputPageNr int, pageCount int, pageNumbers []int, nup *NU
 		// simple booklets are collated by collecting the top of the sheet, then the bottom, then the top of the next sheet, and so on.
 		// this is conceptually easier for collation without specialized tools.
 		if nup.isTopFoldBinding() {
-			// TODO
+			return nup4BasicTopFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
 		} else {
 			return nup4BasicSideFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
 		}
@@ -309,6 +309,44 @@ func nup4BasicSideFoldOutputPageNr(positionNumber int, inputPageCount int, pageN
 	// Rotate bottom row of each output sheet by 180 degrees.
 	var rotate bool
 	if positionNumber%4 >= 2 {
+		rotate = true
+	}
+	return pageNr, rotate
+}
+
+func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
+	var p int
+	bookletSheetSideNumber := positionNumber / 4
+	bookletSheetNumber := positionNumber / 8
+	if bookletSheetSideNumber%2 == 0 {
+		// front side
+		switch positionNumber % 4 {
+		case 0:
+			p = inputPageCount - 4*bookletSheetNumber
+		case 1:
+			p = 3 + 4*bookletSheetNumber
+		case 2:
+			p = 1 + 4*bookletSheetNumber
+		case 3:
+			p = inputPageCount - 2 - 4*bookletSheetNumber
+		}
+	} else {
+		// back side
+		switch get4upPos(positionNumber, nup.PageDim.Landscape()) {
+		case 0:
+			p = 4 + 4*bookletSheetNumber
+		case 1:
+			p = inputPageCount - 1 - 4*bookletSheetNumber
+		case 2:
+			p = inputPageCount - 3 - 4*bookletSheetNumber
+		case 3:
+			p = 2 + 4*bookletSheetNumber
+		}
+	}
+	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
+	// Rotate right side of output page by 180 degrees.
+	var rotate bool
+	if positionNumber%2 == 1 {
 		rotate = true
 	}
 	return pageNr, rotate
