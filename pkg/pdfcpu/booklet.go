@@ -426,7 +426,7 @@ func nup8OutputPageNr(portraitPositionNumber int, inputPageCount int, pageNumber
 	var landscapePositionNumber int
 	switch bookletSheetSideNumber % 2 {
 	case 0: // front side
-		// rotate the block of four pages clockwise to go from portrait to landscape
+		// rotate the block of four pages 90deg clockwise to go from portrait to landscape
 		switch portraitPositionNumber % 4 {
 		case 0:
 			landscapePositionNumber = 1
@@ -438,7 +438,7 @@ func nup8OutputPageNr(portraitPositionNumber int, inputPageCount int, pageNumber
 			landscapePositionNumber = 2
 		}
 	case 1: // back side
-		// rotate the block of four pages anti-clockwise to go from portrait to landscape
+		// rotate the block of four pages 90deg anti-clockwise to go from portrait to landscape
 		// this is different from the front side because of the non-duplex sheet handling flip along the short edge
 		switch portraitPositionNumber % 4 {
 		case 0:
