@@ -387,52 +387,8 @@ func nup4AdvancedSideFoldOutputPageNr(positionNumber int, inputPageCount int, pa
 }
 
 func nup4AdvancedTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
-	var p int
-	bookletSheetSideNumber := positionNumber / 4
-	bookletSheetNumber := positionNumber / 8
-	if bookletSheetSideNumber%2 == 0 {
-		// front side
-		switch positionNumber % 4 {
-		case 0:
-			p = inputPageCount - 4*bookletSheetNumber
-		case 1:
-			p = 3 + 4*bookletSheetNumber
-		case 2:
-			p = 1 + 4*bookletSheetNumber
-		case 3:
-			p = inputPageCount - 2 - 4*bookletSheetNumber
-		}
-	} else if nup.PageDim.Portrait() {
-		// back side (portrait)
-		switch positionNumber % 4 {
-		case 0:
-			p = 4 + 4*bookletSheetNumber
-		case 1:
-			p = inputPageCount - 1 - 4*bookletSheetNumber
-		case 2:
-			p = inputPageCount - 3 - 4*bookletSheetNumber
-		case 3:
-			p = 2 + 4*bookletSheetNumber
-		}
-	} else {
-		// back side (landscape)
-		// landscape long-edge binding page ordering is rotated 180 degrees from the portrait ordering on the back sides of the pages to make duplexing work
-		switch positionNumber % 4 {
-		case 0:
-			p = 2 + 4*bookletSheetNumber
-		case 1:
-			p = inputPageCount - 3 - 4*bookletSheetNumber
-		case 2:
-			p = inputPageCount - 1 - 4*bookletSheetNumber
-		case 3:
-			p = 4 + 4*bookletSheetNumber
-		}
-	}
-
-	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
-	// Rotate right side of output page by 180 degrees.
-	rotate := positionNumber%2 == 1
-	return pageNr, rotate
+	// TODO: this is NOT the same as the old code - that was just doing basic booklet
+	return 0, false
 }
 
 func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *NUp) (int, bool) {
