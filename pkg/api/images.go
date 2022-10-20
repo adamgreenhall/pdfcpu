@@ -81,3 +81,35 @@ func ListImagesFile(inFiles []string, selectedPages []string, conf *pdfcpu.Confi
 	}
 	return ss, nil
 }
+
+func AlterImageFile(inFile, outFile, imageFile string, pageNumber int, imageID string, conf *pdfcpu.Configuration) error {
+	if conf == nil {
+		conf = pdfcpu.NewDefaultConfiguration()
+		// conf.Cmd = pdfcpu.TODO
+	}
+	var f1, f2, fImg *os.File
+	f1, err := os.Open(inFile)
+	if err != nil {
+		return err
+	}
+	defer f1.Close()
+
+	if f2, err = os.Create(outFile); err != nil {
+		return err
+	}
+	defer f2.Close()
+
+	if fImg, err = os.Open(imageFile); err != nil {
+		return err
+	}
+	defer fImg.Close()
+
+	ctx, _, _, _, err := readValidateAndOptimize(f1, conf, time.Now())
+	if err != nil {
+		return err
+	}
+	if err := ctx.AlterImage(pageNumber, imageID, fImg); err != nil {
+		return err
+	}
+	return WriteContext(ctx, f2)
+}

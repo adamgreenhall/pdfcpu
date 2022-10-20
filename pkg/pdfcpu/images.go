@@ -169,3 +169,39 @@ func WriteImageToDisk(outDir, fileName string) func(Image, bool, int) error {
 		return WriteReader(outFile, img)
 	}
 }
+
+func (ctx *Context) AlterImage(pageNumber int, resourceName string, imageRS io.ReadSeeker) error {
+	var imgKey *int
+
+	for k, v := range ctx.Optimize.ImageObjects {
+		if v.ResourceNames[0] == resourceName {
+			imgKey = &k
+			break
+		}
+	}
+	if imgKey == nil {
+		return fmt.Errorf("no image found with name %s", resourceName)
+	}
+	img := ctx.Optimize.ImageObjects[*imgKey]
+	// TODO: detect gray
+	sd, _, _, err := CreateImageStreamDict(ctx.XRefTable, imageRS, true, false)
+	if err != nil {
+		return err
+	}
+	// TODO: more checking here - format, bytes, etc
+	if sd.Dict["Width"] != img.ImageDict.Dict["Width"] || sd.Dict["Height"] != img.ImageDict.Dict["Height"] {
+		return fmt.Errorf(
+			"mismatched dimensions. expected %dx%d but got %dx%d",
+			img.ImageDict.Dict["Width"],
+			img.ImageDict.Dict["Height"],
+			sd.Dict["Width"],
+			sd.Dict["Height"],
+		)
+	}
+	// overwrite with new image from file
+	ctx.Optimize.ImageObjects[*imgKey] = &ImageObject{
+		ResourceNames: []string{resourceName},
+		ImageDict:     sd,
+	}
+	return nil
+}
