@@ -203,5 +203,7 @@ func (ctx *Context) AlterImage(pageNumber int, resourceName string, imageRS io.R
 		ResourceNames: []string{resourceName},
 		ImageDict:     sd,
 	}
+	// TODO: just this isn't working - need to do something else
+	// maybe the inverse of RenderImage??
 	return nil
 }
