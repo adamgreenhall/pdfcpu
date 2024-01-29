@@ -47,15 +47,16 @@ type colValRange struct {
 
 // PDFImage represents a XObject of subtype image.
 type PDFImage struct {
-	objNr     int
-	sd        *types.StreamDict
-	comp      int
-	bpc       int
-	w, h      int
-	softMask  []byte
-	decode    []colValRange
-	imageMask bool
-	thumb     bool
+	objNr        int
+	sd           *types.StreamDict
+	comp         int
+	bpc          int
+	w, h         int
+	softMask     []byte
+	decode       []colValRange
+	imageMask    bool
+	thumb        bool
+	channelNames []string
 }
 
 func decodeArr(a types.Array) []colValRange {
@@ -85,7 +86,7 @@ func decodeArr(a types.Array) []colValRange {
 }
 
 func pdfImage(xRefTable *model.XRefTable, sd *types.StreamDict, thumb bool, objNr int) (*PDFImage, error) {
-	comp, err := ColorSpaceComponents(xRefTable, sd)
+	comp, channelNames, err := ColorSpaceComponents(xRefTable, sd)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +109,17 @@ func pdfImage(xRefTable *model.XRefTable, sd *types.StreamDict, thumb bool, objN
 	}
 
 	return &PDFImage{
-		objNr:     objNr,
-		sd:        sd,
-		comp:      comp,
-		bpc:       bpc,
-		w:         w,
-		h:         h,
-		imageMask: imgMask,
-		softMask:  sm,
-		decode:    decode,
-		thumb:     thumb,
+		objNr:        objNr,
+		sd:           sd,
+		comp:         comp,
+		bpc:          bpc,
+		w:            w,
+		h:            h,
+		imageMask:    imgMask,
+		softMask:     sm,
+		decode:       decode,
+		thumb:        thumb,
+		channelNames: channelNames,
 	}, nil
 }
 
@@ -395,6 +397,40 @@ func renderDeviceRGBToPNG(im *PDFImage, resourceName string) (io.Reader, string,
 	}
 
 	return &buf, "png", nil
+}
+
+func renderCMYKplusSpotToMultiGrayPNG(im *PDFImage, filenameBase string) (io.Reader, string, error) {
+	b := im.sd.Content
+	if log.DebugEnabled() {
+		log.Debug.Printf("renderCMYKplusSpotToMultiGrayPNG: objNr=%d w=%d h=%d bpc=%d buflen=%d\n", im.objNr, im.w, im.h, im.bpc, len(b))
+	}
+
+	// Validate buflen.
+	// Sometimes there is a trailing 0x0A in addition to the imagebytes.
+	if len(b) < (im.comp*im.bpc*im.w*im.h+7)/8 {
+		return nil, "", errors.Errorf("pdfcpu: renderCMYKplusSpotToMultiGrayPNG: objNr=%d corrupt image object\n", im.objNr)
+	}
+
+	idx := 0
+	for c := 0; c < im.comp; c++ {
+		img := image.NewGray(image.Rect(0, 0, im.w, im.h))
+		for y := 0; y < im.h; y++ {
+			for x := 0; x < im.w; x++ {
+				img.Set(x, y, color.Gray{b[idx]})
+				idx++
+			}
+		}
+		var buf bytes.Buffer
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, "", err
+		}
+		// write the file, with color name appendix
+		fnm := fmt.Sprintf("%s-%d-%s.png", filenameBase, c+1, im.channelNames[c])
+		if err := WriteReader(fnm, &buf); err != nil {
+			return nil, "", err
+		}
+	}
+	return nil, "png-multi", nil
 }
 
 func renderCalRGBToPNG(im *PDFImage, resourceName string) (io.Reader, string, error) {
@@ -788,8 +824,11 @@ func renderDeviceN(xRefTable *model.XRefTable, im *PDFImage, resourceName string
 		// CMYK
 		return renderDeviceCMYKToTIFF(im, resourceName)
 	}
+	if im.comp > 4 {
+		return renderCMYKplusSpotToMultiGrayPNG(im, resourceName)
+	}
 
-	return nil, "", fmt.Errorf("deviceN shuold have one of {1,3,4} channels - not supported")
+	return nil, "", fmt.Errorf("deviceN shuold have one of {1,3,4, or >4} channels - n=%d channels not supported", im.comp)
 }
 
 func renderFlateEncodedImage(xRefTable *model.XRefTable, sd *types.StreamDict, thumb bool, resourceName string, objNr int) (io.Reader, string, error) {
@@ -943,9 +982,13 @@ func WriteReader(path string, r io.Reader) error {
 
 // WriteImage writes a PDF image object to disk.
 func WriteImage(xRefTable *model.XRefTable, fileName string, sd *types.StreamDict, thumb bool, objNr int) (string, error) {
-	r, _, err := RenderImage(xRefTable, sd, thumb, fileName, objNr)
+	r, extension, err := RenderImage(xRefTable, sd, thumb, fileName, objNr)
 	if err != nil {
 		return "", err
+	}
+	if extension == "png-multi" {
+		// renderCMYKplusSpotToMultiGrayPNG has already written the files
+		return "", nil
 	}
 	if r == nil {
 		return "", errors.Errorf("pdfcpu: unable to extract image from obj#%d", objNr)

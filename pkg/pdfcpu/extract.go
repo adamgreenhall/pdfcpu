@@ -147,58 +147,64 @@ func indexedColorSpaceComponents(xRefTable *model.XRefTable, cs types.Array) (in
 }
 
 // ColorSpaceComponents returns the corresponding number of used color components for sd's colorspace.
-func ColorSpaceComponents(xRefTable *model.XRefTable, sd *types.StreamDict) (int, error) {
+func ColorSpaceComponents(xRefTable *model.XRefTable, sd *types.StreamDict) (int, []string, error) {
 	o, found := sd.Find("ColorSpace")
 	if !found {
-		return 0, nil
+		return 0, nil, nil
 	}
 
 	o, err := xRefTable.Dereference(o)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	switch cs := o.(type) {
 	case types.Name:
-		return colorSpaceNameComponents(cs), nil
+		return colorSpaceNameComponents(cs), nil, nil
 
 	case types.Array:
 		switch cs[0].(types.Name) {
 
 		case model.CalGrayCS:
-			return 1, nil
+			return 1, nil, nil
 
 		case model.CalRGBCS:
-			return 3, nil
+			return 3, nil, nil
 
 		case model.LabCS:
-			return 3, nil
+			return 3, nil, nil
 
 		case model.ICCBasedCS:
 			iccProfileStream, _, err := xRefTable.DereferenceStreamDict(cs[1])
 			if err != nil {
-				return 0, err
+				return 0, nil, err
 			}
 			n := iccProfileStream.IntEntry("N")
 			i := 0
 			if n != nil {
 				i = *n
 			}
-			return i, nil
+			return i, nil, nil
 
 		case model.SeparationCS:
-			return 1, nil
+			return 1, nil, nil
 
 		case model.DeviceNCS:
-			return len(cs[1].(types.Array)), nil
+			n := len(cs[1].(types.Array))
+			names := make([]string, n)
+			for i, v := range cs[1].(types.Array) {
+				names[i] = strings.ReplaceAll(v.String(), "#20", " ")
+			}
+			return n, names, nil
 
 		case model.IndexedCS:
-			return indexedColorSpaceComponents(xRefTable, cs)
+			n, err := indexedColorSpaceComponents(xRefTable, cs)
+			return n, nil, err
 
 		}
 	}
 
-	return 0, nil
+	return 0, nil, fmt.Errorf("unknown color space for image")
 }
 
 func imageStub(
@@ -224,7 +230,7 @@ func imageStub(
 		return nil, err
 	}
 
-	comp, err := ColorSpaceComponents(ctx.XRefTable, sd)
+	comp, channelNames, err := ColorSpaceComponents(ctx.XRefTable, sd)
 	if err != nil {
 		return nil, err
 	}
@@ -267,21 +273,22 @@ func imageStub(
 	}
 
 	img := &model.Image{
-		ObjNr:       objNr,
-		Name:        resourceId,
-		Thumb:       thumb,
-		IsImgMask:   imgMask,
-		HasImgMask:  mask,
-		HasSMask:    sMask,
-		Width:       *w,
-		Height:      *h,
-		Cs:          cs,
-		Comp:        comp,
-		Bpc:         bpc,
-		Interpol:    interpol,
-		Size:        i,
-		Filter:      filters,
-		DecodeParms: s,
+		ObjNr:             objNr,
+		Name:              resourceId,
+		Thumb:             thumb,
+		IsImgMask:         imgMask,
+		HasImgMask:        mask,
+		HasSMask:          sMask,
+		Width:             *w,
+		Height:            *h,
+		Cs:                cs,
+		Comp:              comp,
+		Bpc:               bpc,
+		Interpol:          interpol,
+		Size:              i,
+		Filter:            filters,
+		DecodeParms:       s,
+		ColorChannelNames: channelNames,
 	}
 
 	return img, nil
@@ -330,7 +337,7 @@ func img(
 	}
 
 	if lastFilter == filter.DCT {
-		comp, err := ColorSpaceComponents(ctx.XRefTable, sd)
+		comp, _, err := ColorSpaceComponents(ctx.XRefTable, sd)
 		if err != nil {
 			return nil, err
 		}
