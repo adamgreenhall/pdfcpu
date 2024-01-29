@@ -384,7 +384,7 @@ func ExtractImage(ctx *model.Context, sd *types.StreamDict, thumb bool, resource
 	}
 
 	if sd.FilterPipeline == nil {
-		return nil, nil
+		return nil, fmt.Errorf("image with no filter defined - not supported")
 	}
 
 	return img(ctx, sd, thumb, imgMask, resourceID, filters, lastFilter, objNr)
