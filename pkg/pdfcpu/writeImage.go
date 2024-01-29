@@ -19,6 +19,7 @@ package pdfcpu
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -788,7 +789,7 @@ func renderDeviceN(xRefTable *model.XRefTable, im *PDFImage, resourceName string
 		return renderDeviceCMYKToTIFF(im, resourceName)
 	}
 
-	return nil, "", nil
+	return nil, "", fmt.Errorf("deviceN shuold have one of {1,3,4} channels - not supported")
 }
 
 func renderFlateEncodedImage(xRefTable *model.XRefTable, sd *types.StreamDict, thumb bool, resourceName string, objNr int) (io.Reader, string, error) {
