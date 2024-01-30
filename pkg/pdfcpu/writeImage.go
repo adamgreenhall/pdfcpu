@@ -411,21 +411,29 @@ func renderCMYKplusSpotToMultiGrayPNG(im *PDFImage, filenameBase string) (io.Rea
 		return nil, "", errors.Errorf("pdfcpu: renderCMYKplusSpotToMultiGrayPNG: objNr=%d corrupt image object\n", im.objNr)
 	}
 
-	idx := 0
+	images := make([]*image.Gray, im.comp)
 	for c := 0; c < im.comp; c++ {
-		img := image.NewGray(image.Rect(0, 0, im.w, im.h))
-		for y := 0; y < im.h; y++ {
-			for x := 0; x < im.w; x++ {
-				img.Set(x, y, color.Gray{b[idx]})
+		images[c] = image.NewGray(image.Rect(0, 0, im.w, im.h))
+	}
+	idx := 0
+	for y := 0; y < im.h; y++ {
+		for x := 0; x < im.w; x++ {
+			for c := range images {
+				images[c].Set(x, y, color.Gray{255 - b[idx]})
 				idx++
 			}
 		}
+	}
+
+	// write the file, with color name appendix
+	for c, img := range images {
 		var buf bytes.Buffer
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, "", err
 		}
-		// write the file, with color name appendix
-		fnm := fmt.Sprintf("%s-%d-%s.png", filenameBase, c+1, im.channelNames[c])
+
+		// FIXME: need to pass multiple pngs back up the chain, instead of hardcoding
+		fnm := fmt.Sprintf("/Users/adam/Downloads/%s-%d-%s.png", filenameBase, c+1, im.channelNames[c])
 		if err := WriteReader(fnm, &buf); err != nil {
 			return nil, "", err
 		}
