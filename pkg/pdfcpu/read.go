@@ -3066,3 +3066,10 @@ func checkForEncryption(c context.Context, ctx *model.Context) error {
 	// We need to decrypt this file in order to read it.
 	return setupEncryptionKey(ctx, d)
 }
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
