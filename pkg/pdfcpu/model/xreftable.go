@@ -1870,7 +1870,7 @@ func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyCo
 	default:
 		return errors.Errorf("pdfcpu: page content must be stream dict or array")
 	}
-	d.Update("Contents", o)
+	d.Update("Contents", o) // FIXME: I think this is not working. modified page is empty
 	return nil
 }
 
