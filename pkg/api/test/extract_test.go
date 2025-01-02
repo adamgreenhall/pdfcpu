@@ -19,8 +19,10 @@ package test
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -316,5 +318,39 @@ func TestExtractMetadataLowLevel(t *testing.T) {
 		}
 		t.Logf("Metadata: objNr=%d parentDictObjNr=%d parentDictType=%s\n%s\n",
 			md.ObjNr, md.ParentObjNr, md.ParentType, string(bb))
+	}
+}
+
+func TestModifyPageContent(t *testing.T) {
+	inFile := filepath.Join(inDir, "text-with-images.pdf")
+	ctx, err := api.ReadContextFile(inFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rexp := regexp.MustCompile(`(?mi)BT[\W\w]*ET\n`)
+	err = pdfcpu.ModifyPageContent(ctx, 1, func(c string) string {
+		log.Println("in\n", c)
+		// remove text object from BT to ET
+		out := rexp.ReplaceAllString(c, "")
+		log.Println("out\n", out)
+		return out
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := api.ValidateContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := filepath.Join("..", "..", "samples", "modify")
+	outFile := filepath.Join(outDir, "removed-first-page-text.pdf")
+	w, err := os.Create(outFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	err = api.Write(ctx, w, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

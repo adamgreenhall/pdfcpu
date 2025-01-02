@@ -1811,6 +1811,69 @@ func (xRefTable *XRefTable) PageContent(d types.Dict) ([]byte, error) {
 	return bb, nil
 }
 
+type ModifyContentFn func(string) string
+
+func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyContentFn ModifyContentFn) error {
+	o, _ := d.Find("Contents")
+	if o == nil {
+		return ErrNoContent
+	}
+
+	o, err := xRefTable.Dereference(o)
+	if err != nil || o == nil {
+		return err
+	}
+
+	switch o := o.(type) {
+
+	case types.StreamDict:
+		// no further processing.
+		err := o.Decode()
+		if err == filter.ErrUnsupportedFilter {
+			return errors.New("pdfcpu: unsupported filter: unable to decode content")
+		}
+		if err != nil {
+			return err
+		}
+
+		o.Content = []byte(modifyContentFn(string(o.Content)))
+		if err := o.Encode(); err != nil {
+			return err
+		}
+
+	case types.Array:
+		// process array of content stream dicts.
+		for _, o := range o {
+			if o == nil {
+				continue
+			}
+			o, _, err := xRefTable.DereferenceStreamDict(o)
+			if err != nil {
+				return err
+			}
+			if o == nil {
+				continue
+			}
+			err = o.Decode()
+			if err == filter.ErrUnsupportedFilter {
+				return errors.New("pdfcpu: unsupported filter: unable to decode content")
+			}
+			if err != nil {
+				return err
+			}
+			o.Content = []byte(modifyContentFn(string(o.Content)))
+			if err := o.Encode(); err != nil {
+				return err
+			}
+		}
+
+	default:
+		return errors.Errorf("pdfcpu: page content must be stream dict or array")
+	}
+	d.Update("Contents", o)
+	return nil
+}
+
 func consolidateResourceSubDict(d types.Dict, key string, prn PageResourceNames, pageNr int) error {
 	o := d[key]
 	if o == nil {

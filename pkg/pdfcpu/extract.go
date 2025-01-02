@@ -634,6 +634,19 @@ func ExtractPageContent(ctx *model.Context, pageNr int) (io.Reader, error) {
 	return bytes.NewReader(bb), nil
 }
 
+func ModifyPageContent(ctx *model.Context, pageNr int, modifyContentFn model.ModifyContentFn) error {
+	consolidateRes := false
+	d, _, _, err := ctx.PageDict(pageNr, consolidateRes)
+	if err != nil {
+		return err
+	}
+	err = ctx.ModifyPageContent(pageNr, d, modifyContentFn)
+	if err != nil && err != model.ErrNoContent {
+		return err
+	}
+	return nil
+}
+
 // Metadata is a Reader representing a metadata dict.
 type Metadata struct {
 	io.Reader          // metadata
