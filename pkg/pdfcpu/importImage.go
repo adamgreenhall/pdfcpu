@@ -73,18 +73,19 @@ var impParamMap = importParamMap{
 
 // Import represents the command details for the command "ImportImage".
 type Import struct {
-	PageDim  *types.Dim        // page dimensions in display unit.
-	PageSize string            // one of A0,A1,A2,A3,A4(=default),A5,A6,A7,A8,Letter,Legal,Ledger,Tabloid,Executive,ANSIC,ANSID,ANSIE.
-	UserDim  bool              // true if one of dimensions or paperSize provided overriding the default.
-	DPI      int               // destination resolution to apply in dots per inch.
-	Pos      types.Anchor      // position anchor, one of tl,tc,tr,l,c,r,bl,bc,br,full.
-	Dx, Dy   float64           // anchor offset.
-	Scale    float64           // relative scale factor. 0 <= x <= 1
-	ScaleAbs bool              // true for absolute scaling.
-	InpUnit  types.DisplayUnit // input display unit.
-	Gray     bool              // true for rendering in Gray.
-	Sepia    bool
-	BgColor  *color.SimpleColor // background color
+	PageDim        *types.Dim        // page dimensions in display unit.
+	PageSize       string            // one of A0,A1,A2,A3,A4(=default),A5,A6,A7,A8,Letter,Legal,Ledger,Tabloid,Executive,ANSIC,ANSID,ANSIE.
+	UserDim        bool              // true if one of dimensions or paperSize provided overriding the default.
+	DPI            int               // destination resolution to apply in dots per inch.
+	Pos            types.Anchor      // position anchor, one of tl,tc,tr,l,c,r,bl,bc,br,full.
+	Dx, Dy         float64           // anchor offset.
+	Scale          float64           // relative scale factor. 0 <= x <= 1
+	ScaleAbs       bool              // true for absolute scaling.
+	InpUnit        types.DisplayUnit // input display unit.
+	Gray           bool              // true for rendering in Gray.
+	Sepia          bool
+	BgColor        *color.SimpleColor // background color
+	PositionMatrix *matrix.Matrix     // the position matrix for placing the image on the page. Overrides: Pos,Dx,Dy,Scale
 }
 
 // DefaultImportConfig returns the default configuration.
@@ -265,6 +266,12 @@ func importImagePDFBytes(wr io.Writer, pageDim *types.Dim, imgWidth, imgHeight f
 		draw.FillRectNoBorder(wr, vp, *imp.BgColor)
 	}
 
+	if imp.PositionMatrix != nil {
+		m := imp.PositionMatrix
+		fmt.Fprintf(wr, "q %.5f %.5f %.5f %.5f %.5f %.5f cm /Im0 Do Q",
+			m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
+		return
+	}
 	if imp.Pos == types.Full {
 		fmt.Fprintf(wr, "q %f 0 0 %f 0 0 cm /Im0 Do Q", vp.Width(), vp.Height())
 		return
@@ -350,7 +357,7 @@ func NewPageForImage(xRefTable *model.XRefTable, r io.Reader, parentIndRef *type
 	}
 
 	dim := &types.Dim{Width: float64(w), Height: float64(h)}
-	if imp.Pos != types.Full {
+	if imp.Pos != types.Full || imp.PositionMatrix != nil {
 		dim = imp.PageDim
 	}
 	// mediabox = physical page dimensions
