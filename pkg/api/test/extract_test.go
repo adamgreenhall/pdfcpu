@@ -26,6 +26,7 @@ import (
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -154,17 +155,57 @@ func TestExtractImagesLowLevel(t *testing.T) {
 	i := 1
 	ii, err := pdfcpu.ExtractPageImages(ctx, i, false)
 	if err != nil {
-		t.Fatalf("%s extractPageFonts(%d): %v\n", msg, i, err)
+		t.Fatalf("%s extractPageImages(%d): %v\n", msg, i, err)
 	}
 
 	baseFileName := strings.TrimSuffix(filepath.Base(fileName), ".pdf")
 
 	// Process extracted images.
 	for _, img := range ii {
+		fmt.Println(img.PositionMatrix)
 		fn := filepath.Join(outDir, fmt.Sprintf("%s_%d_%s.%s", baseFileName, i, img.Name, img.FileType))
 		if err := pdfcpu.WriteReader(fn, img); err != nil {
 			t.Fatalf("%s write: %s", msg, fn)
 		}
+	}
+}
+
+func TestExtractImagesToNewPdf(t *testing.T) {
+	inFile := filepath.Join(samplesDir, "import", "CenteredGraySepia.pdf")
+	outFile := filepath.Join(samplesDir, "import", "TestExtractImagesToNewPdf.pdf")
+	ctx, err := api.ReadContextFile(inFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := api.OptimizeContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	imgs, err := pdfcpu.ExtractPageImages(ctx, 1, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	imgReaders := make([]io.Reader, len(imgs))
+	i := 0
+	var m matrix.Matrix
+	for _, v := range imgs {
+		imgReaders[i] = v.Reader
+		m = v.PositionMatrix
+		i++
+	}
+	importConfig := pdfcpu.DefaultImportConfig()
+	dims, _ := ctx.PageDims()
+	importConfig.PageDim = &dims[0]
+	importConfig.PositionMatrix = &m
+
+	w, err := os.Create(outFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	if err := api.ImportImages(nil, w, imgReaders, importConfig, nil); err != nil {
+		t.Fatal(err)
 	}
 }
 
