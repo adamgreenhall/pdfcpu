@@ -20,11 +20,14 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pdfcpu/pdfcpu/pkg/filter"
 	"github.com/pdfcpu/pdfcpu/pkg/log"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/font"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 	"github.com/pkg/errors"
@@ -437,18 +440,75 @@ func ExtractImage(ctx *model.Context, sd *types.StreamDict, thumb bool, resource
 	return img(ctx, sd, thumb, imgMask, resourceID, filters, lastFilter, objNr)
 }
 
+func parseMatrix(s string) (matrix.Matrix, error) {
+	m := matrix.IdentMatrix
+	arr := strings.Split(s, " ")
+	if len(arr) != 6 {
+		return m, fmt.Errorf("expected matrix with len=6, got len=%d", len(arr))
+	}
+	var err error
+	nums := make([]float64, 6)
+	for i, v := range arr {
+		nums[i], err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			return m, err
+		}
+	}
+	// order is: m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1]
+	idx := 0
+	for i := 0; i <= 2; i++ {
+		for j := 0; j < 2; j++ {
+			m[i][j] = nums[idx]
+			idx++
+		}
+	}
+	return m, nil
+}
+
+func extractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Matrix, error) {
+	r, err := ExtractPageContent(ctx, pageNr)
+	if err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	pageContent := string(b)
+	re := regexp.MustCompile(`(?m)q\s([\d.\s-]+)\scm\s/(Im\d+)`)
+	out := make(map[string]matrix.Matrix)
+	for _, match := range re.FindAllStringSubmatch(pageContent, -1) {
+		resourceNm := match[2]
+		out[resourceNm], err = parseMatrix(match[1])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
 // ExtractPageImages extracts all images used by pageNr.
 // Optionally return stubs only.
 func ExtractPageImages(ctx *model.Context, pageNr int, stub bool) (map[int]model.Image, error) {
 	m := map[int]model.Image{}
+	imgsPos, err := extractImagePositions(ctx, pageNr)
+	if err != nil {
+		return nil, err
+	}
 	for _, objNr := range ImageObjNrs(ctx, pageNr) {
 		imageObj := ctx.Optimize.ImageObjects[objNr]
-		img, err := ExtractImage(ctx, imageObj.ImageDict, false, imageObj.ResourceNames[pageNr-1], objNr, stub)
+		rName := imageObj.ResourceNames[pageNr-1]
+		img, err := ExtractImage(ctx, imageObj.ImageDict, false, rName, objNr, stub)
 		if err != nil {
 			return nil, err
 		}
 		if img != nil {
 			img.PageNr = pageNr
+			pos, ok := imgsPos[rName]
+			if !ok {
+				return nil, fmt.Errorf("could not find image position for %s", rName)
+			}
+			img.PositionMatrix = pos
 			m[objNr] = *img
 		}
 	}

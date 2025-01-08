@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/pdfcpu/pdfcpu/pkg/filter"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 	"github.com/pkg/errors"
 	_ "golang.org/x/image/webp"
@@ -38,23 +39,24 @@ import (
 // Image is a Reader representing an image resource.
 type Image struct {
 	io.Reader
-	Name        string // Resource name
-	FileType    string
-	PageNr      int
-	ObjNr       int
-	Width       int    // "Width"
-	Height      int    // "Height"
-	Bpc         int    // "BitsPerComponent"
-	Cs          string // "ColorSpace"
-	Comp        int    // color component count
-	IsImgMask   bool   // "ImageMask"
-	HasImgMask  bool   // "Mask"
-	HasSMask    bool   // "SMask"
-	Thumb       bool   // "Thumbnail"
-	Interpol    bool   // "Interpolate"
-	Size        int64  // "Length"
-	Filter      string // filter pipeline
-	DecodeParms string
+	Name           string // Resource name
+	FileType       string
+	PageNr         int
+	ObjNr          int
+	Width          int    // "Width"
+	Height         int    // "Height"
+	Bpc            int    // "BitsPerComponent"
+	Cs             string // "ColorSpace"
+	Comp           int    // color component count
+	IsImgMask      bool   // "ImageMask"
+	HasImgMask     bool   // "Mask"
+	HasSMask       bool   // "SMask"
+	Thumb          bool   // "Thumbnail"
+	Interpol       bool   // "Interpolate"
+	Size           int64  // "Length"
+	Filter         string // filter pipeline
+	DecodeParms    string
+	PositionMatrix matrix.Matrix
 }
 
 // ImageFileName returns true for supported image file types.
