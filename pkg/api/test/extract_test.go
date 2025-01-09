@@ -372,20 +372,6 @@ func TestExtractImagePositions(t *testing.T) {
 		for i := 1; i <= ctx.PageCount; i++ {
 			testName := fmt.Sprintf("%s:%d", filepath.Base(pdf), i)
 			t.Run(testName, func(tt *testing.T) {
-				switch filepath.Base(pdf) {
-				case "GoForOptimization.pdf", "Acroforms2.pdf":
-					tt.Skip() // these dont work -- found image resource name=%s in content not in expected page resources
-				}
-				switch testName {
-				case "go.pdf:23": // Image6 not on page
-					tt.Skip()
-				case "gobook.0.pdf:165": // many images listed - none on page
-					tt.Skip()
-				case "pike-stanford.pdf:52": // Im106 not on page
-					tt.Skip()
-				case "from-typst.pdf:4": // missing=Im1. expected 2 but got 0
-					tt.Skip()
-				}
 				res, err := pdfcpu.ExtractImagePositions(ctx, i)
 				if err != nil && debug {
 					debugExtractPositions(t, res, ctx, i)
