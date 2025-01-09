@@ -470,13 +470,17 @@ func parseMatrix(s string) (matrix.Matrix, error) {
 	return m, nil
 }
 
+func isValidImageResourceName(nm string) bool {
+	return strings.HasPrefix(nm, "Im")
+}
+
 func ExtractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Matrix, error) {
 	names := make([]string, 0)
 	namesMap := make(map[string]bool)
 	for _, objNr := range ImageObjNrs(ctx, pageNr) {
 		imageObj := ctx.Optimize.ImageObjects[objNr]
 		nm := imageObj.ResourceNames[pageNr-1]
-		if strings.HasPrefix(nm, "Im") {
+		if isValidImageResourceName(nm) {
 			names = append(names, nm)
 			namesMap[nm] = true
 		}
@@ -522,6 +526,9 @@ func ExtractPageImages(ctx *model.Context, pageNr int, stub bool) (map[int]model
 	for _, objNr := range ImageObjNrs(ctx, pageNr) {
 		imageObj := ctx.Optimize.ImageObjects[objNr]
 		rName := imageObj.ResourceNames[pageNr-1]
+		if !isValidImageResourceName(rName) {
+			continue
+		}
 		img, err := ExtractImage(ctx, imageObj.ImageDict, false, rName, objNr, stub)
 		if err != nil {
 			return nil, err
