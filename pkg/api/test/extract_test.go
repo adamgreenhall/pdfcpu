@@ -171,7 +171,6 @@ func TestExtractImagesLowLevel(t *testing.T) {
 
 func TestExtractImagesToNewPdf(t *testing.T) {
 	inFile := filepath.Join(inDir, "CenterOfWhy.pdf")
-	pageNum := 3 // this page has four images on it
 	outFile := filepath.Join(samplesDir, "import", "TestExtractImagesToNewPdf.pdf")
 	ctx, err := api.ReadContextFile(inFile)
 	if err != nil {
@@ -180,22 +179,27 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 	if err := api.OptimizeContext(ctx); err != nil {
 		t.Fatal(err)
 	}
-	imgs, err := pdfcpu.ExtractPageImages(ctx, pageNum, false)
-	if err != nil {
-		t.Fatal(err)
+	pages := []int{3, 4}
+	imgReaders := make([][]io.Reader, len(pages))
+	imgCfgs := make([][]*pdfcpu.Import, len(pages))
+	for p, pageNum := range pages {
+		imgs, err := pdfcpu.ExtractPageImages(ctx, pageNum, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		imgReaders[p] = make([]io.Reader, len(imgs))
+		imgCfgs[p] = make([]*pdfcpu.Import, len(imgs))
+		i := 0
+		for _, v := range imgs {
+			cfg := pdfcpu.DefaultImportConfig()
+			cfg.PositionMatrix = &v.PositionMatrix
+			imgCfgs[p][i] = cfg
+			imgReaders[p][i] = v.Reader
+			i++
+		}
 	}
 
 	dims, _ := ctx.PageDims()
-	imgReaders := make([]io.Reader, len(imgs))
-	imgCfgs := make([]*pdfcpu.Import, len(imgs))
-	i := 0
-	for _, v := range imgs {
-		imgReaders[i] = v.Reader
-		cfg := pdfcpu.DefaultImportConfig()
-		cfg.PositionMatrix = &v.PositionMatrix
-		imgCfgs[i] = cfg
-		i++
-	}
 
 	w, err := os.Create(outFile)
 	if err != nil {
@@ -203,7 +207,7 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 	}
 	defer w.Close()
 
-	if err := api.CopyImagesToNewPdf(w, [][]io.Reader{imgReaders}, [][]*pdfcpu.Import{imgCfgs}, dims[0], nil); err != nil {
+	if err := api.CopyImagesToNewPdf(w, imgReaders, imgCfgs, dims[0], nil); err != nil {
 		t.Fatal(err)
 	}
 }
