@@ -427,3 +427,105 @@ func ExtractMetadataFile(inFile, outDir string, conf *model.Configuration) error
 
 	return ExtractMetadata(f, outDir, filepath.Base(inFile), conf)
 }
+
+func CopyFileImagesToNewPdf(inFile, outFile string, conf *model.Configuration) (err error) {
+	if conf == nil {
+		conf = model.NewDefaultConfiguration()
+	}
+	var f1, f2 *os.File
+
+	if f1, err = os.Open(inFile); err != nil {
+		f1.Close()
+		return err
+	}
+
+	if f2, err = os.Create(outFile); err != nil {
+		f2.Close()
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			f2.Close()
+			f1.Close()
+			return
+		}
+		if err = f2.Close(); err != nil {
+			return
+		}
+		if err = f1.Close(); err != nil {
+			return
+		}
+	}()
+
+	// get images
+	ctx, err := ReadValidateAndOptimize(f1, conf)
+	if err != nil {
+		return err
+	}
+	imgReaders := make([][]io.Reader, ctx.PageCount)
+	imgCfgs := make([][]*pdfcpu.Import, ctx.PageCount)
+	for p := 0; p < ctx.PageCount; p++ {
+		imgs, err := pdfcpu.ExtractPageImages(ctx, p+1, false)
+		if err != nil {
+			return err
+		}
+		imgReaders[p] = make([]io.Reader, len(imgs))
+		imgCfgs[p] = make([]*pdfcpu.Import, len(imgs))
+		i := 0
+		for _, v := range imgs {
+			cfg := pdfcpu.DefaultImportConfig()
+			m := v.PositionMatrix
+			cfg.PositionMatrix = &m
+			imgCfgs[p][i] = cfg
+			imgReaders[p][i] = v.Reader
+			i++
+		}
+	}
+
+	dims, err := ctx.PageDims()
+	if err != nil {
+		return err
+	}
+
+	// create
+	return copyImagesToNew(f2, conf, dims, imgReaders, imgCfgs)
+}
+
+func copyImagesToNew(w io.Writer, conf *model.Configuration, dims []types.Dim, imgs [][]io.Reader, imps [][]*pdfcpu.Import) error {
+	pageDim := dims[0]
+	ctx, err := pdfcpu.CreateContextWithXRefTable(conf, &pageDim)
+	if err != nil {
+		return err
+	}
+
+	pagesIndRef, err := ctx.Pages()
+	if err != nil {
+		return err
+	}
+
+	// This is the page tree root.
+	pagesDict, err := ctx.DereferenceDict(*pagesIndRef)
+	if err != nil {
+		return err
+	}
+
+	for p := range imps {
+		indRef, err := pdfcpu.NewPageForImages(ctx.XRefTable, pagesIndRef, imgs[p], imps[p], dims[p])
+		if err != nil {
+			return err
+		}
+
+		if err := ctx.SetValid(*indRef); err != nil {
+			return err
+		}
+
+		if err = model.AppendPageTree(indRef, 1, pagesDict); err != nil {
+			return err
+		}
+
+		ctx.PageCount++
+	}
+
+	return Write(ctx, w, conf)
+}

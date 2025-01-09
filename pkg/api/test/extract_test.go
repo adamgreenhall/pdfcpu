@@ -176,43 +176,7 @@ func TestExtractImagesLowLevel(t *testing.T) {
 func TestExtractImagesToNewPdf(t *testing.T) {
 	inFile := filepath.Join(inDir, "CenterOfWhy.pdf")
 	outFile := filepath.Join(samplesDir, "import", "TestExtractImagesToNewPdf.pdf")
-	ctx, err := api.ReadContextFile(inFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := api.OptimizeContext(ctx); err != nil {
-		t.Fatal(err)
-	}
-	pages := []int{3, 4}
-	imgReaders := make([][]io.Reader, len(pages))
-	imgCfgs := make([][]*pdfcpu.Import, len(pages))
-	for p, pageNum := range pages {
-		imgs, err := pdfcpu.ExtractPageImages(ctx, pageNum, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		imgReaders[p] = make([]io.Reader, len(imgs))
-		imgCfgs[p] = make([]*pdfcpu.Import, len(imgs))
-		i := 0
-		for _, v := range imgs {
-			cfg := pdfcpu.DefaultImportConfig()
-			m := v.PositionMatrix
-			cfg.PositionMatrix = &m
-			imgCfgs[p][i] = cfg
-			imgReaders[p][i] = v.Reader
-			i++
-		}
-	}
-
-	dims, _ := ctx.PageDims()
-
-	w, err := os.Create(outFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer w.Close()
-
-	if err := api.CopyImagesToNewPdf(w, imgReaders, imgCfgs, dims[0], nil); err != nil {
+	if err := api.CopyFileImagesToNewPdf(inFile, outFile, nil); err != nil {
 		t.Fatal(err)
 	}
 }
