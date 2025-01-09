@@ -24,8 +24,12 @@ import (
 	"strings"
 	"testing"
 
+	"log"
+
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -361,4 +365,67 @@ func TestExtractMetadataLowLevel(t *testing.T) {
 		t.Logf("Metadata: objNr=%d parentDictObjNr=%d parentDictType=%s\n%s\n",
 			md.ObjNr, md.ParentObjNr, md.ParentType, string(bb))
 	}
+}
+
+func TestExtractImagePositions(t *testing.T) {
+	pdfs, err := filepath.Glob(filepath.Join(inDir, "*.pdf"))
+	ok(t, err)
+	debug := true
+	for _, pdf := range pdfs {
+		ctx, err := api.ReadContextFile(pdf)
+		ok(t, err)
+		ok(t, api.OptimizeContext(ctx))
+		for i := 1; i <= ctx.PageCount; i++ {
+			testName := fmt.Sprintf("%s:%d", filepath.Base(pdf), i)
+			t.Run(testName, func(tt *testing.T) {
+				switch testName {
+				case "GoForOptimization.pdf:1": // Image25 is not on page
+					tt.Skip()
+				case "GoForOptimization.pdf:19": // Image6, Image249 not on page
+					tt.Skip()
+				case "go.pdf:23": // Image6 not on page
+					tt.Skip()
+				case "gobook.0.pdf:165": // many images listed - none on page
+					tt.Skip()
+				}
+				res, err := pdfcpu.ExtractImagePositions(ctx, i)
+				if err != nil && debug {
+					debugExtractPositions(t, res, ctx, i)
+					debug = false
+				}
+				ok(tt, err)
+			})
+		}
+	}
+}
+func ok(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func debugExtractPositions(t *testing.T, res map[string]matrix.Matrix, ctx *model.Context, pageNr int) {
+	names := make([]string, 0)
+	for _, objNr := range pdfcpu.ImageObjNrs(ctx, pageNr) {
+		imageObj := ctx.Optimize.ImageObjects[objNr]
+		nm := imageObj.ResourceNames[pageNr-1]
+		if strings.HasPrefix(nm, "Im") {
+			names = append(names, nm)
+		}
+	}
+	if res != nil {
+		namesRes := make([]string, 0)
+		for k := range res {
+			namesRes = append(namesRes, k)
+		}
+		log.Printf("expected %d images=%s but got names=%s", len(names), names, namesRes)
+	} else {
+		log.Printf("expected %d images=%s", len(names), names)
+	}
+	r, err := pdfcpu.ExtractPageContent(ctx, pageNr)
+	ok(t, err)
+	b, err := io.ReadAll(r)
+	ok(t, err)
+	pageContent := string(b)
+	log.Println("content\n", pageContent)
 }

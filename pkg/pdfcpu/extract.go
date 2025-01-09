@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/pdfcpu/pdfcpu/pkg/filter"
 	"github.com/pdfcpu/pdfcpu/pkg/log"
@@ -442,7 +443,11 @@ func ExtractImage(ctx *model.Context, sd *types.StreamDict, thumb bool, resource
 
 func parseMatrix(s string) (matrix.Matrix, error) {
 	m := matrix.IdentMatrix
-	arr := strings.Split(s, " ")
+	// split by whitespace, allowing for multiple spaces
+	splitFn := func(c rune) bool {
+		return unicode.IsSpace(c) // allows any whitespace char
+	}
+	arr := strings.FieldsFunc(s, splitFn)
 	if len(arr) != 6 {
 		return m, fmt.Errorf("expected matrix with len=6, got len=%d", len(arr))
 	}
@@ -465,7 +470,21 @@ func parseMatrix(s string) (matrix.Matrix, error) {
 	return m, nil
 }
 
-func extractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Matrix, error) {
+func ExtractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Matrix, error) {
+	names := make([]string, 0)
+	namesMap := make(map[string]bool)
+	for _, objNr := range ImageObjNrs(ctx, pageNr) {
+		imageObj := ctx.Optimize.ImageObjects[objNr]
+		nm := imageObj.ResourceNames[pageNr-1]
+		if strings.HasPrefix(nm, "Im") {
+			names = append(names, nm)
+			namesMap[nm] = true
+		}
+	}
+	nExpected := len(names)
+	if nExpected == 0 {
+		return nil, nil
+	}
 	r, err := ExtractPageContent(ctx, pageNr)
 	if err != nil {
 		return nil, err
@@ -475,19 +494,19 @@ func extractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Ma
 		return nil, err
 	}
 	pageContent := string(b)
-	re := regexp.MustCompile(`(?m)q(?:\s/GS\d\sgs)?\s([\d.\s-]+)\scm\s/(Im\d+)\sDo\sQ`)
+	re := regexp.MustCompile(`(?m)\s+([\d.\s-]+)\s+cm\s+/(Im(?:age)?\d+)\s+Do\s+Q`)
 	out := make(map[string]matrix.Matrix)
 	for _, match := range re.FindAllStringSubmatch(pageContent, -1) {
 		resourceNm := match[2]
-		out[resourceNm], err = parseMatrix(match[1])
-		if err != nil {
-			return nil, err
+		if ok := namesMap[resourceNm]; ok {
+			out[resourceNm], err = parseMatrix(match[1])
+			if err != nil {
+				return nil, fmt.Errorf(`failed to parse matrix from string "%s". error %s`, match[1], err)
+			}
 		}
 	}
-	nExpected := len(ImageObjNrs(ctx, pageNr))
 	if len(out) != nExpected {
-		fmt.Println(pageContent)
-		return nil, fmt.Errorf("failed to parse all image positions. expected %d but got %d", nExpected, len(out))
+		return out, fmt.Errorf("failed to parse all image positions. expected %d but got %d", nExpected, len(out))
 	}
 	return out, nil
 }
@@ -496,7 +515,7 @@ func extractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Ma
 // Optionally return stubs only.
 func ExtractPageImages(ctx *model.Context, pageNr int, stub bool) (map[int]model.Image, error) {
 	m := map[int]model.Image{}
-	imgsPos, err := extractImagePositions(ctx, pageNr)
+	imgsPos, err := ExtractImagePositions(ctx, pageNr)
 	if err != nil {
 		return nil, err
 	}
