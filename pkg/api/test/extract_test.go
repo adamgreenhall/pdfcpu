@@ -26,7 +26,6 @@ import (
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -185,18 +184,17 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	dims, _ := ctx.PageDims()
 	imgReaders := make([]io.Reader, len(imgs))
+	imgCfgs := make([]*pdfcpu.Import, len(imgs))
 	i := 0
-	var m matrix.Matrix
 	for _, v := range imgs {
 		imgReaders[i] = v.Reader
-		m = v.PositionMatrix
+		cfg := pdfcpu.DefaultImportConfig()
+		cfg.PositionMatrix = &v.PositionMatrix
+		imgCfgs[i] = cfg
 		i++
 	}
-	importConfig := pdfcpu.DefaultImportConfig()
-	dims, _ := ctx.PageDims()
-	importConfig.PageDim = &dims[0]
-	importConfig.PositionMatrix = &m
 
 	w, err := os.Create(outFile)
 	if err != nil {
@@ -204,7 +202,7 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 	}
 	defer w.Close()
 
-	if err := api.ImportImages(nil, w, imgReaders, importConfig, nil); err != nil {
+	if err := api.CopyImagesToNewPdf(w, imgReaders, imgCfgs, dims[0], nil); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -71,7 +71,62 @@ func ImportImages(rs io.ReadSeeker, w io.Writer, imgs []io.Reader, imp *pdfcpu.I
 
 	for _, r := range imgs {
 
-		indRef, err := pdfcpu.NewPageForImage(ctx.XRefTable, r, pagesIndRef, imp)
+		indRef, err := pdfcpu.NewPageForImages(ctx.XRefTable, pagesIndRef, []io.Reader{r}, []*pdfcpu.Import{imp}, *imp.PageDim)
+		if err != nil {
+			return err
+		}
+
+		if err := ctx.SetValid(*indRef); err != nil {
+			return err
+		}
+
+		if err = model.AppendPageTree(indRef, 1, pagesDict); err != nil {
+			return err
+		}
+
+		ctx.PageCount++
+	}
+
+	return Write(ctx, w, conf)
+}
+
+func CopyImagesToNewPdf(w io.Writer, imgs []io.Reader, imps []*pdfcpu.Import, pageDim types.Dim, conf *model.Configuration) error {
+	if conf == nil {
+		conf = model.NewDefaultConfiguration()
+	}
+	conf.Cmd = model.IMPORTIMAGES
+
+	ctx, err := pdfcpu.CreateContextWithXRefTable(conf, &pageDim)
+	if err != nil {
+		return err
+	}
+
+	pagesIndRef, err := ctx.Pages()
+	if err != nil {
+		return err
+	}
+
+	// This is the page tree root.
+	pagesDict, err := ctx.DereferenceDict(*pagesIndRef)
+	if err != nil {
+		return err
+	}
+
+	impsByPage := make(map[int][]*pdfcpu.Import)
+	imgsBypage := make(map[int][]io.Reader)
+	for i, imp := range imps {
+		_, ok := impsByPage[imp.PageNumber]
+		if !ok {
+			impsByPage[imp.PageNumber] = make([]*pdfcpu.Import, 0)
+			imgsBypage[imp.PageNumber] = make([]io.Reader, 0)
+		}
+
+		impsByPage[imp.PageNumber] = append(impsByPage[imp.PageNumber], imp)
+		imgsBypage[imp.PageNumber] = append(imgsBypage[imp.PageNumber], imgs[i])
+	}
+
+	for pgNum, imgs := range imgsBypage {
+		indRef, err := pdfcpu.NewPageForImages(ctx.XRefTable, pagesIndRef, imgs, impsByPage[pgNum], pageDim)
 		if err != nil {
 			return err
 		}

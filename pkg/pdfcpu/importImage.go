@@ -85,7 +85,8 @@ type Import struct {
 	Gray           bool              // true for rendering in Gray.
 	Sepia          bool
 	BgColor        *color.SimpleColor // background color
-	PositionMatrix *matrix.Matrix     // the position matrix for placing the image on the page. Overrides: Pos,Dx,Dy,Scale
+	PageNumber     int
+	PositionMatrix *matrix.Matrix // the position matrix for placing the image on the page. Overrides: Pos,Dx,Dy,Scale
 }
 
 // DefaultImportConfig returns the default configuration.
@@ -334,20 +335,28 @@ func importImagePDFBytes(wr io.Writer, pageDim *types.Dim, imgWidth, imgHeight f
 		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
 }
 
-// NewPageForImage creates a new page dict in xRefTable for given image reader r.
-func NewPageForImage(xRefTable *model.XRefTable, r io.Reader, parentIndRef *types.IndirectRef, imp *Import) (*types.IndirectRef, error) {
+// NewPageForImage creates a new page dict in xRefTable for given imgReaders and import configs.
+func NewPageForImages(xRefTable *model.XRefTable, parentIndRef *types.IndirectRef, imgReaders []io.Reader, imps []*Import, pageDim types.Dim) (*types.IndirectRef, error) {
+	// create image dicts.
+	xObj := make(map[string]types.Object)
+	streamBytes := make([]byte, 0)
+	for i, r := range imgReaders {
+		imgIndRef, w, h, err := model.CreateImageResource(xRefTable, r, imps[i].Gray, imps[i].Sepia)
+		if err != nil {
+			return nil, err
+		}
+		xObj[fmt.Sprintf("Im%d", i)] = *imgIndRef
 
-	// create image dict.
-	imgIndRef, w, h, err := model.CreateImageResource(xRefTable, r, imp.Gray, imp.Sepia)
-	if err != nil {
-		return nil, err
+		var buf bytes.Buffer
+		importImagePDFBytes(&buf, &pageDim, float64(w), float64(h), imps[i])
+		streamBytes = append(streamBytes, buf.Bytes()...)
 	}
 
 	// create resource dict for XObject.
 	d := types.Dict(
 		map[string]types.Object{
 			"ProcSet": types.NewNameArray("PDF", "Text", "ImageB", "ImageC", "ImageI"),
-			"XObject": types.Dict(map[string]types.Object{"Im0": *imgIndRef}),
+			"XObject": types.Dict(xObj),
 		},
 	)
 
@@ -356,20 +365,10 @@ func NewPageForImage(xRefTable *model.XRefTable, r io.Reader, parentIndRef *type
 		return nil, err
 	}
 
-	dim := &types.Dim{Width: float64(w), Height: float64(h)}
-	if imp.Pos != types.Full || imp.PositionMatrix != nil {
-		dim = imp.PageDim
-	}
-	// mediabox = physical page dimensions
-	mediaBox := types.RectForDim(dim.Width, dim.Height)
-
-	var buf bytes.Buffer
-	importImagePDFBytes(&buf, dim, float64(w), float64(h), imp)
-	sd, _ := xRefTable.NewStreamDictForBuf(buf.Bytes())
+	sd, _ := xRefTable.NewStreamDictForBuf(streamBytes)
 	if err = sd.Encode(); err != nil {
 		return nil, err
 	}
-
 	contentsIndRef, err := xRefTable.IndRefForNewObject(*sd)
 	if err != nil {
 		return nil, err
@@ -379,7 +378,7 @@ func NewPageForImage(xRefTable *model.XRefTable, r io.Reader, parentIndRef *type
 		map[string]types.Object{
 			"Type":      types.Name("Page"),
 			"Parent":    *parentIndRef,
-			"MediaBox":  mediaBox.Array(),
+			"MediaBox":  types.RectForDim(pageDim.Width, pageDim.Height).Array(),
 			"Resources": *resIndRef,
 			"Contents":  *contentsIndRef,
 		},
