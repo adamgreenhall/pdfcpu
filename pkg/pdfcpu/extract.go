@@ -475,7 +475,7 @@ func extractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Ma
 		return nil, err
 	}
 	pageContent := string(b)
-	re := regexp.MustCompile(`(?m)q\s([\d.\s-]+)\scm\s/(Im\d+)`)
+	re := regexp.MustCompile(`(?m)q(?:\s/GS\d\sgs)?\s([\d.\s-]+)\scm\s/(Im\d+)\sDo\sQ`)
 	out := make(map[string]matrix.Matrix)
 	for _, match := range re.FindAllStringSubmatch(pageContent, -1) {
 		resourceNm := match[2]
@@ -483,6 +483,11 @@ func extractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Ma
 		if err != nil {
 			return nil, err
 		}
+	}
+	nExpected := len(ImageObjNrs(ctx, pageNr))
+	if len(out) != nExpected {
+		fmt.Println(pageContent)
+		return nil, fmt.Errorf("failed to parse all image positions. expected %d but got %d", nExpected, len(out))
 	}
 	return out, nil
 }

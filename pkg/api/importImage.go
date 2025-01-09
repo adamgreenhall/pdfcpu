@@ -90,7 +90,7 @@ func ImportImages(rs io.ReadSeeker, w io.Writer, imgs []io.Reader, imp *pdfcpu.I
 	return Write(ctx, w, conf)
 }
 
-func CopyImagesToNewPdf(w io.Writer, imgs []io.Reader, imps []*pdfcpu.Import, pageDim types.Dim, conf *model.Configuration) error {
+func CopyImagesToNewPdf(w io.Writer, imgs [][]io.Reader, imps [][]*pdfcpu.Import, pageDim types.Dim, conf *model.Configuration) error {
 	if conf == nil {
 		conf = model.NewDefaultConfiguration()
 	}
@@ -112,21 +112,8 @@ func CopyImagesToNewPdf(w io.Writer, imgs []io.Reader, imps []*pdfcpu.Import, pa
 		return err
 	}
 
-	impsByPage := make(map[int][]*pdfcpu.Import)
-	imgsBypage := make(map[int][]io.Reader)
-	for i, imp := range imps {
-		_, ok := impsByPage[imp.PageNumber]
-		if !ok {
-			impsByPage[imp.PageNumber] = make([]*pdfcpu.Import, 0)
-			imgsBypage[imp.PageNumber] = make([]io.Reader, 0)
-		}
-
-		impsByPage[imp.PageNumber] = append(impsByPage[imp.PageNumber], imp)
-		imgsBypage[imp.PageNumber] = append(imgsBypage[imp.PageNumber], imgs[i])
-	}
-
-	for pgNum, imgs := range imgsBypage {
-		indRef, err := pdfcpu.NewPageForImages(ctx.XRefTable, pagesIndRef, imgs, impsByPage[pgNum], pageDim)
+	for p := range imps {
+		indRef, err := pdfcpu.NewPageForImages(ctx.XRefTable, pagesIndRef, imgs[p], imps[p], pageDim)
 		if err != nil {
 			return err
 		}

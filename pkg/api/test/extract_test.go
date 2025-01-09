@@ -170,7 +170,8 @@ func TestExtractImagesLowLevel(t *testing.T) {
 }
 
 func TestExtractImagesToNewPdf(t *testing.T) {
-	inFile := filepath.Join(samplesDir, "import", "CenteredGraySepia.pdf")
+	inFile := filepath.Join(inDir, "CenterOfWhy.pdf")
+	pageNum := 3 // this page has four images on it
 	outFile := filepath.Join(samplesDir, "import", "TestExtractImagesToNewPdf.pdf")
 	ctx, err := api.ReadContextFile(inFile)
 	if err != nil {
@@ -179,7 +180,7 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 	if err := api.OptimizeContext(ctx); err != nil {
 		t.Fatal(err)
 	}
-	imgs, err := pdfcpu.ExtractPageImages(ctx, 1, false)
+	imgs, err := pdfcpu.ExtractPageImages(ctx, pageNum, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +203,7 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 	}
 	defer w.Close()
 
-	if err := api.CopyImagesToNewPdf(w, imgReaders, imgCfgs, dims[0], nil); err != nil {
+	if err := api.CopyImagesToNewPdf(w, [][]io.Reader{imgReaders}, [][]*pdfcpu.Import{imgCfgs}, dims[0], nil); err != nil {
 		t.Fatal(err)
 	}
 }

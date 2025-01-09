@@ -257,7 +257,7 @@ func ParseImportDetails(s string, u types.DisplayUnit) (*Import, error) {
 	return imp, nil
 }
 
-func importImagePDFBytes(wr io.Writer, pageDim *types.Dim, imgWidth, imgHeight float64, imp *Import) {
+func importImagePDFBytes(wr io.Writer, pageDim *types.Dim, imgNum int, imgWidth, imgHeight float64, imp *Import) {
 
 	vpw := float64(pageDim.Width)
 	vph := float64(pageDim.Height)
@@ -269,12 +269,12 @@ func importImagePDFBytes(wr io.Writer, pageDim *types.Dim, imgWidth, imgHeight f
 
 	if imp.PositionMatrix != nil {
 		m := imp.PositionMatrix
-		fmt.Fprintf(wr, "q %.5f %.5f %.5f %.5f %.5f %.5f cm /Im0 Do Q",
-			m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
+		fmt.Fprintf(wr, "q %.5f %.5f %.5f %.5f %.5f %.5f cm /Im%d Do Q\n",
+			m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1], imgNum)
 		return
 	}
 	if imp.Pos == types.Full {
-		fmt.Fprintf(wr, "q %f 0 0 %f 0 0 cm /Im0 Do Q", vp.Width(), vp.Height())
+		fmt.Fprintf(wr, "q %f 0 0 %f 0 0 cm /Im%d Do Q\n", vp.Width(), vp.Height(), imgNum)
 		return
 	}
 
@@ -331,8 +331,8 @@ func importImagePDFBytes(wr io.Writer, pageDim *types.Dim, imgWidth, imgHeight f
 	m[2][0] = ll.X + imp.Dx
 	m[2][1] = ll.Y + imp.Dy
 
-	fmt.Fprintf(wr, "q %.5f %.5f %.5f %.5f %.5f %.5f cm /Im0 Do Q",
-		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
+	fmt.Fprintf(wr, "q %.5f %.5f %.5f %.5f %.5f %.5f cm /Im%d Do Q\n",
+		m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1], imgNum)
 }
 
 // NewPageForImage creates a new page dict in xRefTable for given imgReaders and import configs.
@@ -348,7 +348,7 @@ func NewPageForImages(xRefTable *model.XRefTable, parentIndRef *types.IndirectRe
 		xObj[fmt.Sprintf("Im%d", i)] = *imgIndRef
 
 		var buf bytes.Buffer
-		importImagePDFBytes(&buf, &pageDim, float64(w), float64(h), imps[i])
+		importImagePDFBytes(&buf, &pageDim, i, float64(w), float64(h), imps[i])
 		streamBytes = append(streamBytes, buf.Bytes()...)
 	}
 
