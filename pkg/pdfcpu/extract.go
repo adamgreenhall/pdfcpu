@@ -56,7 +56,11 @@ func ImageObjNrs(ctx *model.Context, pageNr int) []int {
 
 	for k, v := range pageImgObjNrs {
 		if v {
-			objNrs = append(objNrs, k)
+			imageObj := ctx.Optimize.ImageObjects[k]
+			rName := imageObj.ResourceNames[pageNr-1]
+			if isValidImageResourceName(rName) {
+				objNrs = append(objNrs, k)
+			}
 		}
 	}
 	return objNrs
@@ -475,20 +479,17 @@ func isValidImageResourceName(nm string) bool {
 }
 
 func ExtractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Matrix, error) {
-	names := make([]string, 0)
-	namesMap := make(map[string]bool)
+	namesFound := make(map[string]bool)
 	for _, objNr := range ImageObjNrs(ctx, pageNr) {
 		imageObj := ctx.Optimize.ImageObjects[objNr]
 		nm := imageObj.ResourceNames[pageNr-1]
-		if isValidImageResourceName(nm) {
-			names = append(names, nm)
-			namesMap[nm] = true
-		}
+		namesFound[nm] = false
 	}
-	nExpected := len(names)
-	if nExpected == 0 {
-		return nil, nil
-	}
+	nExpected := len(namesFound)
+	// TODO: if we get ImageObjNrs working properly, then we can early exit here
+	// if nExpected == 0 {
+	// 	return nil, nil
+	// }
 	r, err := ExtractPageContent(ctx, pageNr)
 	if err != nil {
 		return nil, err
@@ -502,15 +503,20 @@ func ExtractImagePositions(ctx *model.Context, pageNr int) (map[string]matrix.Ma
 	out := make(map[string]matrix.Matrix)
 	for _, match := range re.FindAllStringSubmatch(pageContent, -1) {
 		resourceNm := match[2]
-		if ok := namesMap[resourceNm]; ok {
+		if _, ok := namesFound[resourceNm]; ok {
 			out[resourceNm], err = parseMatrix(match[1])
 			if err != nil {
 				return nil, fmt.Errorf(`failed to parse matrix from string "%s". error %s`, match[1], err)
 			}
+			namesFound[resourceNm] = true
+		} else {
+			return nil, fmt.Errorf("found image resource name=%s in content not in expected page resources", resourceNm)
 		}
 	}
-	if len(out) != nExpected {
-		return out, fmt.Errorf("failed to parse all image positions. expected %d but got %d", nExpected, len(out))
+	for k, ok := range namesFound {
+		if !ok {
+			return out, fmt.Errorf("failed to parse all image positions. missing=%s. expected %d but got %d", k, nExpected, len(out))
+		}
 	}
 	return out, nil
 }
@@ -526,9 +532,6 @@ func ExtractPageImages(ctx *model.Context, pageNr int, stub bool) (map[int]model
 	for _, objNr := range ImageObjNrs(ctx, pageNr) {
 		imageObj := ctx.Optimize.ImageObjects[objNr]
 		rName := imageObj.ResourceNames[pageNr-1]
-		if !isValidImageResourceName(rName) {
-			continue
-		}
 		img, err := ExtractImage(ctx, imageObj.ImageDict, false, rName, objNr, stub)
 		if err != nil {
 			return nil, err
