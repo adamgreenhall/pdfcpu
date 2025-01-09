@@ -85,8 +85,7 @@ type Import struct {
 	Gray           bool              // true for rendering in Gray.
 	Sepia          bool
 	BgColor        *color.SimpleColor // background color
-	PageNumber     int
-	PositionMatrix *matrix.Matrix // the position matrix for placing the image on the page. Overrides: Pos,Dx,Dy,Scale
+	PositionMatrix *matrix.Matrix     // the position matrix for placing the image on the page. Overrides: Pos,Dx,Dy,Scale
 }
 
 // DefaultImportConfig returns the default configuration.
