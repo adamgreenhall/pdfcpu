@@ -90,48 +90,6 @@ func ImportImages(rs io.ReadSeeker, w io.Writer, imgs []io.Reader, imp *pdfcpu.I
 	return Write(ctx, w, conf)
 }
 
-func CopyImagesToNewPdf(w io.Writer, imgs [][]io.Reader, imps [][]*pdfcpu.Import, pageDim types.Dim, conf *model.Configuration) error {
-	if conf == nil {
-		conf = model.NewDefaultConfiguration()
-	}
-	conf.Cmd = model.IMPORTIMAGES
-
-	ctx, err := pdfcpu.CreateContextWithXRefTable(conf, &pageDim)
-	if err != nil {
-		return err
-	}
-
-	pagesIndRef, err := ctx.Pages()
-	if err != nil {
-		return err
-	}
-
-	// This is the page tree root.
-	pagesDict, err := ctx.DereferenceDict(*pagesIndRef)
-	if err != nil {
-		return err
-	}
-
-	for p := range imps {
-		indRef, err := pdfcpu.NewPageForImages(ctx.XRefTable, pagesIndRef, imgs[p], imps[p], pageDim)
-		if err != nil {
-			return err
-		}
-
-		if err := ctx.SetValid(*indRef); err != nil {
-			return err
-		}
-
-		if err = model.AppendPageTree(indRef, 1, pagesDict); err != nil {
-			return err
-		}
-
-		ctx.PageCount++
-	}
-
-	return Write(ctx, w, conf)
-}
-
 func fileExists(filename string) bool {
 	var ret bool
 	f, err := os.Open(filename)
