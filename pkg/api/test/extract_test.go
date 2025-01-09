@@ -196,7 +196,8 @@ func TestExtractImagesToNewPdf(t *testing.T) {
 		i := 0
 		for _, v := range imgs {
 			cfg := pdfcpu.DefaultImportConfig()
-			cfg.PositionMatrix = &v.PositionMatrix
+			m := v.PositionMatrix
+			cfg.PositionMatrix = &m
 			imgCfgs[p][i] = cfg
 			imgReaders[p][i] = v.Reader
 			i++
