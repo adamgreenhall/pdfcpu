@@ -431,6 +431,7 @@ func ExtractMetadataFile(inFile, outDir string, conf *model.Configuration) error
 func CopyFileImagesToNewPdf(inFile, outFile string, conf *model.Configuration) (err error) {
 	if conf == nil {
 		conf = model.NewDefaultConfiguration()
+		conf.Cmd = model.EXTRACTIMAGES
 	}
 	var f1, f2 *os.File
 
