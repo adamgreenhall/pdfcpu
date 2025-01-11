@@ -19,7 +19,6 @@ package test
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -327,12 +326,11 @@ func TestModifyPageContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rexp := regexp.MustCompile(`(?mi)/srgb[\W\w]*ET\n`)
+	rexp := regexp.MustCompile(`(?mi)BT[\W\w]*ET\n`) // remove text object from BT to ET
 	err = pdfcpu.ModifyPageContent(ctx, 1, func(c string) string {
-		log.Println("in\n", c)
-		// remove text object from BT to ET
+		// log.Println("in\n", c)
 		out := rexp.ReplaceAllString(c, "")
-		log.Println("out\n", out)
+		// log.Println("out\n", out)
 		return out
 	})
 	if err != nil {
