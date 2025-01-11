@@ -1814,12 +1814,12 @@ func (xRefTable *XRefTable) PageContent(d types.Dict) ([]byte, error) {
 type ModifyContentFn func(string) string
 
 func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyContentFn ModifyContentFn) error {
-	o, _ := d.Find("Contents")
-	if o == nil {
+	oRef, _ := d.Find("Contents")
+	if oRef == nil {
 		return ErrNoContent
 	}
 
-	o, err := xRefTable.Dereference(o)
+	o, err := xRefTable.Dereference(oRef)
 	if err != nil || o == nil {
 		return err
 	}
@@ -1840,7 +1840,6 @@ func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyCo
 		if err := o.Encode(); err != nil {
 			return err
 		}
-
 	case types.Array:
 		// process array of content stream dicts.
 		for _, o := range o {
@@ -1870,7 +1869,17 @@ func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyCo
 	default:
 		return errors.Errorf("pdfcpu: page content must be stream dict or array")
 	}
-	d.Update("Contents", o) // FIXME: I think this is not working. modified page is empty
+	// re-reference object
+	newNum, err := xRefTable.InsertObject(o)
+	if err != nil {
+		return err
+	}
+	newContents, err := xRefTable.FindObject(newNum)
+	if err != nil {
+		return err
+	}
+	d.Update("Contents", newContents)
+	// TODO: remove old contents obj
 	return nil
 }
 
