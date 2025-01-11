@@ -356,6 +356,44 @@ func TestExtractImagePositions(t *testing.T) {
 		})
 	}
 }
+
+func getImageObjectNum(ctx *model.Context, pgNum int, resourceName string) (int, error) {
+
+	for _, objNr := range pdfcpu.ImageObjNrs(ctx, pgNum) {
+		imageObj := ctx.Optimize.ImageObjects[objNr]
+		nm := imageObj.ResourceNames[pgNum-1]
+		if nm == resourceName {
+			return objNr, nil
+		}
+	}
+	return 0, fmt.Errorf("couldnt find object number for %s on pg=%d", resourceName, pgNum)
+}
+
+func TestExtractImageResize(t *testing.T) {
+	fnm := "CenterOfWhy.pdf"
+	imgName := "Im0"
+	pgNum := 2
+	cfg := model.NewDefaultConfiguration()
+	cfg.Cmd = model.EXTRACTIMAGES
+	f, err := os.Open(filepath.Join(inDir, fnm))
+	ok(t, err)
+	defer f.Close()
+	ctx, err := api.ReadValidateAndOptimize(f, cfg)
+	ok(t, err)
+	pos, err := pdfcpu.ExtractImagePositions(ctx, pgNum, true)
+	ok(t, err)
+	objNum, err := getImageObjectNum(ctx, pgNum, imgName)
+	ok(t, err)
+	imgs, _, err := pdfcpu.Images(ctx, types.IntSet{pgNum: true})
+	ok(t, err)
+	dims, err := ctx.PageDims()
+	ok(t, err)
+	img := imgs[0][objNum]
+	m := pos[imgName]
+	fmt.Println(img.Width, img.Height)
+	fmt.Println(m)
+	fmt.Println(dims[pgNum-1])
+}
 func ok(t *testing.T, err error) {
 	if err != nil {
 		t.Fatal(err)
