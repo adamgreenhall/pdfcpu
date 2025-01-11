@@ -20,11 +20,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/pdfcpu/pdfcpu/pkg/filter"
 	"github.com/pdfcpu/pdfcpu/pkg/log"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/font"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 	"github.com/pkg/errors"
@@ -736,4 +738,51 @@ func ExtractMetadata(ctx *model.Context) ([]Metadata, error) {
 		}
 	}
 	return mm, nil
+}
+
+func ExtractImagePositions(ctx *model.Context, pageNr int, validate bool) (map[string]matrix.Matrix, error) {
+	namesFound := make(map[string]bool)
+	for _, objNr := range ImageObjNrs(ctx, pageNr) {
+		imageObj := ctx.Optimize.ImageObjects[objNr]
+		nm := imageObj.ResourceNames[pageNr-1]
+		namesFound[nm] = false
+	}
+	nExpected := len(namesFound)
+	// TODO: if we get ImageObjNrs working properly, then we can early exit here
+	// if nExpected == 0 {
+	// 	return nil, nil
+	// }
+	r, err := ExtractPageContent(ctx, pageNr)
+	if err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	pageContent := string(b)
+	re := regexp.MustCompile(`(?m)\s+([\d.\s-]+)\s+cm\s+/(Im(?:age)?\d+)\s+Do\s+Q`)
+	out := make(map[string]matrix.Matrix)
+	for _, match := range re.FindAllStringSubmatch(pageContent, -1) {
+		resourceNm := match[2]
+		if _, ok := namesFound[resourceNm]; ok {
+			out[resourceNm], err = matrix.ParseMatrixFromString(match[1])
+			if err != nil {
+				return nil, fmt.Errorf(`failed to parse matrix from string "%s". error %s`, match[1], err)
+			}
+			namesFound[resourceNm] = true
+		} else {
+			if validate {
+				return nil, fmt.Errorf("found image resource name=%s in content not in page resources", resourceNm)
+			}
+		}
+	}
+	if validate {
+		for k, ok := range namesFound {
+			if !ok {
+				return out, fmt.Errorf("failed to parse all image positions. missing=%s. expected %d but got %d", k, nExpected, len(out))
+			}
+		}
+	}
+	return out, nil
 }
