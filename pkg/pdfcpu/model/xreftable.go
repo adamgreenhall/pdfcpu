@@ -1811,35 +1811,6 @@ func (xRefTable *XRefTable) PageContent(d types.Dict) ([]byte, error) {
 	return bb, nil
 }
 
-type ModifyContentFn func(string) string
-
-func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyContentFn ModifyContentFn) error {
-	bb, err := xRefTable.PageContent(d)
-	if err != nil {
-		return err
-	}
-	newContent := []byte(modifyContentFn(string(bb)))
-	sd, _ := xRefTable.NewStreamDictForBuf(newContent)
-	sd.Encode()
-
-	oRef, _ := d.Find("Contents")
-	if oRef == nil {
-		return ErrNoContent
-	}
-	oInd, ok := oRef.(types.IndirectRef)
-	if !ok {
-		return errors.New("pdfcpu: couldnt get contents ref")
-	}
-
-	// overwrite content ref object
-	entry, ok := xRefTable.FindTableEntry(oInd.ObjectNumber.Value(), 0)
-	if !ok {
-		errors.Errorf("pdfcpu: invalid objNr=%d", oInd.ObjectNumber.Value())
-	}
-	entry.Object = *sd
-	return nil
-}
-
 func consolidateResourceSubDict(d types.Dict, key string, prn PageResourceNames, pageNr int) error {
 	o := d[key]
 	if o == nil {

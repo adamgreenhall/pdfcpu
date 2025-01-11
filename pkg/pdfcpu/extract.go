@@ -634,16 +634,37 @@ func ExtractPageContent(ctx *model.Context, pageNr int) (io.Reader, error) {
 	return bytes.NewReader(bb), nil
 }
 
-func ModifyPageContent(ctx *model.Context, pageNr int, modifyContentFn model.ModifyContentFn) error {
-	consolidateRes := false
-	d, _, _, err := ctx.PageDict(pageNr, consolidateRes)
+type ModifyContentFn func(string) string
+
+func ModifyPageContent(ctx *model.Context, pageNr int, modifyContentFn ModifyContentFn) error {
+	d, _, _, err := ctx.PageDict(pageNr, false)
 	if err != nil {
 		return err
 	}
-	err = ctx.ModifyPageContent(pageNr, d, modifyContentFn)
-	if err != nil && err != model.ErrNoContent {
+
+	bb, err := ctx.PageContent(d)
+	if err != nil {
 		return err
 	}
+	newContent := []byte(modifyContentFn(string(bb)))
+	sd, _ := ctx.NewStreamDictForBuf(newContent)
+	sd.Encode()
+
+	oRef, _ := d.Find("Contents")
+	if oRef == nil {
+		return model.ErrNoContent
+	}
+	oInd, ok := oRef.(types.IndirectRef)
+	if !ok {
+		return errors.New("pdfcpu: couldnt get contents ref")
+	}
+
+	// overwrite content ref object
+	entry, ok := ctx.FindTableEntry(oInd.ObjectNumber.Value(), 0)
+	if !ok {
+		errors.Errorf("pdfcpu: invalid objNr=%d", oInd.ObjectNumber.Value())
+	}
+	entry.Object = *sd
 	return nil
 }
 
