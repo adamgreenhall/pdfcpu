@@ -413,3 +413,63 @@ func debugExtractPositions(t *testing.T, res map[string]matrix.Matrix, ctx *mode
 	pageContent := string(b)
 	log.Println("content\n", pageContent)
 }
+
+func TestExtractDEBUG(t *testing.T) {
+	// inFile := "/Users/adam/Documents/code/spectrolite/test/fixtures/pdf/test-image-text/test-text-overlay.pdf" // from typst
+	inFile := "/Users/adam/Documents/code/spectrolite/test/fixtures/pdf/test-image-text/test-gradient.pdf" // from typst
+	// inFile := "/Users/adam/Documents/code/spectrolite/test/fixtures/pdf/test-image-text/image-rotate.pdf" // from pages
+	// inFile := "/Users/adam/Documents/code/spectrolite/test/fixtures/pdf/test-image-text/text-color.pdf" // from pages
+	// inFile := "/Users/adam/Documents/code/spectrolite/test/fixtures/pdf/test-image-text/text-overlay.pdf" // from google sheets
+	pgNum := 1
+	// inFile := filepath.Join(inDir, "CenterOfWhy.pdf")
+	// pgNum := 2
+
+	ctx, err := api.ReadContextFile(inFile)
+	ok(t, err)
+	d, _, _, err := ctx.PageDict(pgNum, false)
+	ok(t, err)
+	o, found := d.Find("Resources")
+	if !found {
+		ok(t, fmt.Errorf("no resources"))
+	}
+	r, err := ctx.XRefTable.DereferenceDict(o)
+	ok(t, err)
+
+	o, found = r.Find("ColorSpace")
+	if found {
+		cSpaces := make(map[string]string)
+		cs, err := ctx.XRefTable.DereferenceDict(o)
+		ok(t, err)
+		for k, v := range cs {
+			g, err := ctx.XRefTable.DereferenceDict(v)
+			if err != nil {
+				g, err := ctx.XRefTable.DereferenceArray(v)
+				ok(t, err)
+				if g[0].String() == "ICCBased" {
+					cSpaces[k] = "ICCBased"
+					icc, _, err := ctx.XRefTable.DereferenceStreamDict(g[1])
+					ok(t, err)
+					log.Println(icc)
+				} else {
+					log.Printf("error: color space unknown: %s", g[0])
+				}
+			} else {
+				cSpaces[k] = g.String()
+			}
+		}
+		log.Println(cSpaces)
+	}
+
+	o, found = r.Find("ExtGState")
+	if found {
+		gs, err := ctx.XRefTable.DereferenceDict(o)
+		ok(t, err)
+		gStates := make(map[string]types.Dict)
+		for k, v := range gs {
+			g, err := ctx.XRefTable.DereferenceDict(v)
+			ok(t, err)
+			gStates[k] = g
+		}
+		log.Println(gStates)
+	}
+}
