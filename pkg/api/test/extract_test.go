@@ -26,6 +26,8 @@ import (
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/matrix"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
@@ -316,5 +318,46 @@ func TestExtractMetadataLowLevel(t *testing.T) {
 		}
 		t.Logf("Metadata: objNr=%d parentDictObjNr=%d parentDictType=%s\n%s\n",
 			md.ObjNr, md.ParentObjNr, md.ParentType, string(bb))
+	}
+}
+
+func TestExtractImagePositions(t *testing.T) {
+	cfg := model.NewDefaultConfiguration()
+	cfg.Cmd = model.EXTRACTIMAGES
+	for _, tc := range []struct {
+		fnm      string
+		pageNum  int
+		expected map[string]matrix.Matrix
+	}{
+		{"CenterOfWhy.pdf", 2, map[string]matrix.Matrix{
+			"Im0": {{125.6502075, 0, 0}, {0, 148.0200043, 0}, {414, 571.9799957, 1}},
+			"Im1": {{88.7711029, 0, 0}, {0, 120.1575928, 0}, {456.4575043, 367.2610016, 1}},
+		}},
+	} {
+		testName := fmt.Sprintf("%s:%d", tc.fnm, tc.pageNum)
+		t.Run(testName, func(tt *testing.T) {
+			f, err := os.Open(filepath.Join(inDir, tc.fnm))
+			ok(tt, err)
+			defer f.Close()
+			ctx, err := api.ReadValidateAndOptimize(f, cfg)
+			ok(tt, err)
+			res, err := pdfcpu.ExtractImagePositions(ctx, tc.pageNum, true)
+			ok(tt, err)
+			for k, v := range tc.expected {
+				actual, ok := res[k]
+				if !ok {
+					tt.Errorf("expected image %s", k)
+				} else {
+					if actual != v {
+						tt.Errorf("matrix not equal for image %s.\n expected: %s\n      got: %s", k, v, actual)
+					}
+				}
+			}
+		})
+	}
+}
+func ok(t *testing.T, err error) {
+	if err != nil {
+		t.Fatal(err)
 	}
 }
