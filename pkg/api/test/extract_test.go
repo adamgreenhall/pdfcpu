@@ -321,7 +321,7 @@ func TestExtractMetadataLowLevel(t *testing.T) {
 }
 
 func TestModifyPageContent(t *testing.T) {
-	inFile := filepath.Join(inDir, "text-with-images.pdf")
+	inFile := filepath.Join(inDir, "text-with-image.pdf")
 	ctx, err := api.ReadContextFile(inFile)
 	if err != nil {
 		t.Fatal(err)

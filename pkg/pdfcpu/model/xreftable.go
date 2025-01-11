@@ -1814,6 +1814,14 @@ func (xRefTable *XRefTable) PageContent(d types.Dict) ([]byte, error) {
 type ModifyContentFn func(string) string
 
 func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyContentFn ModifyContentFn) error {
+	bb, err := xRefTable.PageContent(d)
+	if err != nil {
+		return err
+	}
+	newContent := []byte(modifyContentFn(string(bb)))
+	sd, _ := xRefTable.NewStreamDictForBuf(newContent)
+	sd.Encode()
+
 	oRef, _ := d.Find("Contents")
 	if oRef == nil {
 		return ErrNoContent
@@ -1823,34 +1831,7 @@ func (xRefTable *XRefTable) ModifyPageContent(pageNr int, d types.Dict, modifyCo
 		return errors.New("pdfcpu: couldnt get contents ref")
 	}
 
-	o, err := xRefTable.Dereference(oRef)
-	if err != nil || o == nil {
-		return err
-	}
-
-	var pageContents []byte
-	switch o := o.(type) {
-
-	case types.StreamDict:
-		// no further processing.
-		err := o.Decode()
-		if err == filter.ErrUnsupportedFilter {
-			return errors.New("pdfcpu: unsupported filter: unable to decode content")
-		}
-		if err != nil {
-			return err
-		}
-
-		pageContents = []byte(modifyContentFn(string(o.Content)))
-
-	default:
-		return errors.Errorf("pdfcpu: page content must be stream dict")
-	}
-
-	sd, _ := xRefTable.NewStreamDictForBuf(pageContents)
-	sd.Encode()
-
-	// re-reference object
+	// overwrite content ref object
 	entry, ok := xRefTable.FindTableEntry(oInd.ObjectNumber.Value(), 0)
 	if !ok {
 		errors.Errorf("pdfcpu: invalid objNr=%d", oInd.ObjectNumber.Value())
