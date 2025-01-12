@@ -62,6 +62,16 @@ func (m Matrix) String() string {
 		m[2][0], m[2][1], m[2][2])
 }
 
+func (m Matrix) PdfString() string {
+	out := make([]string, 6)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 2; j++ { // ignore 3rd row
+			out[i*2+j] = strconv.FormatFloat(m[i][j], 'f', -1, 64) // print fewest digits needed to represent float
+		}
+	}
+	return strings.Join(out, " ")
+}
+
 // CalcTransformMatrix returns a full transform matrix.
 func CalcTransformMatrix(sx, sy, sin, cos, dx, dy float64) Matrix {
 	// Scale
