@@ -740,11 +740,20 @@ func ExtractMetadata(ctx *model.Context) ([]Metadata, error) {
 	return mm, nil
 }
 
-func ExtractImagePositions(ctx *model.Context, pageNr int, validate bool) (map[string]matrix.Matrix, error) {
+type ImagePositionsResult struct {
+	ImageContentIndex int
+	ReferenceName     string
+	ObjectNumber      int
+	Position          matrix.Matrix
+}
+
+func ExtractImagePositions(ctx *model.Context, pageNr int, validate bool) ([]ImagePositionsResult, error) {
 	namesFound := make(map[string]bool)
+	nameToObjectNum := make(map[string]int)
 	for _, objNr := range ImageObjNrs(ctx, pageNr) {
 		imageObj := ctx.Optimize.ImageObjects[objNr]
 		nm := imageObj.ResourceNames[pageNr-1]
+		nameToObjectNum[nm] = objNr
 		namesFound[nm] = false
 	}
 	nExpected := len(namesFound)
@@ -762,14 +771,20 @@ func ExtractImagePositions(ctx *model.Context, pageNr int, validate bool) (map[s
 	}
 	pageContent := string(b)
 	re := regexp.MustCompile(`(?m)\s+([\d.\s-]+)\s+cm\s+/(Im(?:age)?\d+)\s+Do\s+Q`)
-	out := make(map[string]matrix.Matrix)
+	out := make([]ImagePositionsResult, 0)
 	for _, match := range re.FindAllStringSubmatch(pageContent, -1) {
 		resourceNm := match[2]
 		if _, ok := namesFound[resourceNm]; ok {
-			out[resourceNm], err = matrix.ParseMatrixFromString(match[1])
+			m, err := matrix.ParseMatrixFromString(match[1])
 			if err != nil {
 				return nil, fmt.Errorf(`failed to parse matrix from string "%s". error %s`, match[1], err)
 			}
+			out = append(out, ImagePositionsResult{
+				ImageContentIndex: len(out),
+				ReferenceName:     resourceNm,
+				ObjectNumber:      nameToObjectNum[resourceNm],
+				Position:          m,
+			})
 			namesFound[resourceNm] = true
 		} else {
 			if validate {

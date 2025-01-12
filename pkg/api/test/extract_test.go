@@ -360,11 +360,11 @@ func TestExtractImagePositions(t *testing.T) {
 	for _, tc := range []struct {
 		fnm      string
 		pageNum  int
-		expected map[string]matrix.Matrix
+		expected []pdfcpu.ImagePositionsResult
 	}{
-		{"CenterOfWhy.pdf", 2, map[string]matrix.Matrix{
-			"Im0": {{125.6502075, 0, 0}, {0, 148.0200043, 0}, {414, 571.9799957, 1}},
-			"Im1": {{88.7711029, 0, 0}, {0, 120.1575928, 0}, {456.4575043, 367.2610016, 1}},
+		{"CenterOfWhy.pdf", 2, []pdfcpu.ImagePositionsResult{
+			{ReferenceName: "Im0", Position: matrix.Matrix{{125.6502075, 0, 0}, {0, 148.0200043, 0}, {414, 571.9799957, 1}}},
+			{ReferenceName: "Im1", Position: matrix.Matrix{{88.7711029, 0, 0}, {0, 120.1575928, 0}, {456.4575043, 367.2610016, 1}}},
 		}},
 	} {
 		testName := fmt.Sprintf("%s:%d", tc.fnm, tc.pageNum)
@@ -376,14 +376,19 @@ func TestExtractImagePositions(t *testing.T) {
 			ok(tt, err)
 			res, err := pdfcpu.ExtractImagePositions(ctx, tc.pageNum, true)
 			ok(tt, err)
-			for k, v := range tc.expected {
-				actual, ok := res[k]
-				if !ok {
-					tt.Errorf("expected image %s", k)
-				} else {
-					if actual != v {
-						tt.Errorf("matrix not equal for image %s.\n expected: %s\n      got: %s", k, v, actual)
+			for _, v := range tc.expected {
+				found := false
+				for _, r := range res {
+					if r.ReferenceName == v.ReferenceName {
+						if r.Position != v.Position {
+							tt.Errorf("matrix not equal for image %s.\n expected: %s\n      got: %s", v.ReferenceName, v.Position, r.Position)
+						}
+						found = true
+						break
 					}
+				}
+				if !found {
+					tt.Errorf("expected image name=%s in results %T", v.ReferenceName, res)
 				}
 			}
 		})
