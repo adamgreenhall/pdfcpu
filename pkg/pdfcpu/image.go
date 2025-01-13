@@ -19,6 +19,7 @@ package pdfcpu
 import (
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -289,6 +290,7 @@ func WriteImageToDisk(outDir, fileName string) func(model.Image, bool, int) erro
 }
 
 func validateImageDimensions(ctx *model.Context, objNr, w, h int) error {
+	// new image must have the dimensions as the old one. or the aspect ratios must be the same.
 	imgObj := ctx.Optimize.ImageObjects[objNr]
 	if imgObj == nil {
 		return errors.Errorf("pdfcpu: unknown image object for objNr=%d", objNr)
@@ -303,10 +305,16 @@ func validateImageDimensions(ctx *model.Context, objNr, w, h int) error {
 		return errors.New("pdfcpu: corrupt image dict")
 	}
 
-	if *width != w || *height != h {
-		return errors.Errorf("pdfcpu: invalid image dimensions, want(%d,%d), got(%d,%d)", w, h, *width, *height)
+	if *width == w || *height == h {
+		return nil
 	}
-
+	// check if aspect ratios are the same
+	arOld := float64(*width) / float64(*height)
+	arNew := float64(w) / float64(h)
+	expectedH := int(math.Round(float64(w) / arOld))
+	if expectedH != h {
+		return errors.Errorf("pdfcpu: invalid image dimensions, expected(%d,%d), got(%d,%d). aspect ratios should not change - expected %0.5f, got %0.5f", *width, *height, w, h, arOld, arNew)
+	}
 	return nil
 }
 
