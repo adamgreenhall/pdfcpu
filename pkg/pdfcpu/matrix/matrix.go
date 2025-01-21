@@ -19,6 +19,9 @@ package matrix
 import (
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
@@ -92,4 +95,33 @@ func CalcRotateTransformMatrix(rot float64, bb *types.Rectangle) Matrix {
 	dx := bb.LL.X + bb.Width()/2 + sin*(bb.Height()/2) - cos*bb.Width()/2
 	dy := bb.LL.Y + bb.Height()/2 - cos*(bb.Height()/2) - sin*bb.Width()/2
 	return CalcTransformMatrix(1, 1, sin, cos, dx, dy)
+}
+
+func ParseMatrixFromString(s string) (Matrix, error) {
+	m := IdentMatrix
+	// split by whitespace, allowing for multiple spaces
+	splitFn := func(c rune) bool {
+		return unicode.IsSpace(c) // allows any whitespace char
+	}
+	arr := strings.FieldsFunc(s, splitFn)
+	if len(arr) != 6 {
+		return m, fmt.Errorf("expected matrix with len=6, got len=%d", len(arr))
+	}
+	var err error
+	nums := make([]float64, 6)
+	for i, v := range arr {
+		nums[i], err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			return m, err
+		}
+	}
+	// order is: m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1] -- we are ignoring the last column (z)
+	idx := 0
+	for i := 0; i <= 2; i++ {
+		for j := 0; j < 2; j++ {
+			m[i][j] = nums[idx]
+			idx++
+		}
+	}
+	return m, nil
 }
