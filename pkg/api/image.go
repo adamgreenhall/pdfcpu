@@ -72,7 +72,7 @@ func UpdateImages(rs io.ReadSeeker, rd io.Reader, w io.Writer, objNr, pageNr int
 	}
 
 	if objNr > 0 {
-		if err := pdfcpu.UpdateImagesByObjNr(ctx, rd, objNr); err != nil {
+		if err := pdfcpu.UpdateImagesByObjNr(ctx, rd, objNr, true); err != nil {
 			return err
 		}
 
