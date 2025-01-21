@@ -311,15 +311,17 @@ func validateImageDimensions(ctx *model.Context, objNr, w, h int) error {
 }
 
 // UpdateImagesByObjNr replaces an XObject.
-func UpdateImagesByObjNr(ctx *model.Context, rd io.Reader, objNr int) error {
+func UpdateImagesByObjNr(ctx *model.Context, rd io.Reader, objNr int, shouldValidate bool) error {
 
 	sd, w, h, err := model.CreateImageStreamDict(ctx.XRefTable, rd, false, false)
 	if err != nil {
 		return err
 	}
 
-	if err := validateImageDimensions(ctx, objNr, w, h); err != nil {
-		return err
+	if shouldValidate {
+		if err := validateImageDimensions(ctx, objNr, w, h); err != nil {
+			return err
+		}
 	}
 
 	genNr := 0
