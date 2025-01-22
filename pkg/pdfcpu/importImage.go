@@ -387,7 +387,7 @@ func InsertImageRefIntoPdf(ctx *model.Context, r io.Reader, pageNums []int) (obj
 		return objNum, refName, err
 	}
 	objNum = imgIndRef.ObjectNumber.Value()
-	refName = "Im" + strconv.Itoa(objNum)
+	refName = "ImageInserted" + strconv.Itoa(objNum)
 	imgDict, err := ctx.DereferenceXObjectDict(*imgIndRef)
 	if err != nil {
 		return objNum, refName, err
@@ -407,9 +407,7 @@ func InsertImageRefIntoPdf(ctx *model.Context, r io.Reader, pageNums []int) (obj
 			return objNum, refName, fmt.Errorf("page resources XObject not found for pg%d", pageNr)
 		}
 		d, _ := ctx.DereferenceDict(o)
-		if ok := d.Insert(refName, *imgIndRef); !ok {
-			return objNum, refName, fmt.Errorf("page resources already has refName=%s for pg%d", refName, pageNr)
-		}
+		d.Insert(refName, *imgIndRef)
 	}
 	ctx.Optimize.ImageObjects[objNum] = &model.ImageObject{ResourceNames: resourceNames, ImageDict: imgDict}
 	return objNum, refName, nil
