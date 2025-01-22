@@ -380,3 +380,37 @@ func NewPageForImage(xRefTable *model.XRefTable, r io.Reader, parentIndRef *type
 
 	return xRefTable.IndRefForNewObject(pageDict)
 }
+
+func InsertImageRefIntoPdf(ctx *model.Context, r io.Reader, pageNums []int) (objNum int, refName string, err error) {
+	imgIndRef, _, _, err := model.CreateImageResource(ctx.XRefTable, r, false, false)
+	if err != nil {
+		return objNum, refName, err
+	}
+	objNum = imgIndRef.ObjectNumber.Value()
+	refName = "Im" + strconv.Itoa(objNum)
+	imgDict, err := ctx.DereferenceXObjectDict(*imgIndRef)
+	if err != nil {
+		return objNum, refName, err
+	}
+
+	resourceNames := make(map[int]string)
+	for _, pageNr := range pageNums {
+		ctx.Optimize.PageImages[pageNr-1][objNum] = true
+		resourceNames[pageNr-1] = refName
+
+		_, _, inhPAttrs, err := ctx.PageDict(pageNr, false)
+		if err != nil {
+			return objNum, refName, err
+		}
+		o, ok := inhPAttrs.Resources.Find("XObject")
+		if !ok {
+			return objNum, refName, fmt.Errorf("page resources XObject not found for pg%d", pageNr)
+		}
+		d, _ := ctx.DereferenceDict(o)
+		if ok := d.Insert(refName, *imgIndRef); !ok {
+			return objNum, refName, fmt.Errorf("page resources already has refName=%s for pg%d", refName, pageNr)
+		}
+	}
+	ctx.Optimize.ImageObjects[objNum] = &model.ImageObject{ResourceNames: resourceNames, ImageDict: imgDict}
+	return objNum, refName, nil
+}
