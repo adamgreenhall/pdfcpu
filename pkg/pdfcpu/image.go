@@ -327,7 +327,7 @@ func UpdateImagesByObjNr(ctx *model.Context, rd io.Reader, objNr int, shouldVali
 	genNr := 0
 	entry, ok := ctx.FindTableEntry(objNr, genNr)
 	if !ok {
-		errors.Errorf("pdfcpu: invalid objNr=%d", objNr)
+		return errors.Errorf("pdfcpu: invalid objNr=%d", objNr)
 	}
 
 	entry.Object = *sd
