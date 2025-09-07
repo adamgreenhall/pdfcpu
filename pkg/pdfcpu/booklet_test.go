@@ -22,15 +22,16 @@ import (
 )
 
 type pageOrderResults struct {
-	id                 string
-	nup                int
-	pageCount          int
-	expectedPageOrder  []int
-	papersize          string
-	bookletType        string
-	binding            string
-	useSignatures      bool
-	nPagesPerSignature int
+	id                    string
+	nup                   int
+	pageCount             int
+	expectedPageOrder     []int
+	expectedPageRotations []bool
+	papersize             string
+	bookletType           string
+	binding               string
+	useSignatures         bool
+	nPagesPerSignature    int
 }
 
 var bookletTestCases = []pageOrderResults{
@@ -227,58 +228,88 @@ var bookletTestCases = []pageOrderResults{
 	},
 	// perfect bound
 	{
-		id:        "perfect bound 2up",
-		nup:       2,
-		pageCount: 8,
+		id:          "perfect bound 2up",
+		nup:         2,
+		pageCount:   8,
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "perfectbound",
+		binding:     "long",
 		expectedPageOrder: []int{
 			1, 3,
 			2, 4,
 			5, 7,
 			6, 8,
 		},
+		expectedPageRotations: []bool{
+			false, false,
+			true, true,
+			false, false,
+			true, true,
+		},
+	},
+	{
+		id:          "perfect bound 4up",
+		nup:         4,
+		pageCount:   16,
 		papersize:   "A6", // portrait, long-edge binding
 		bookletType: "perfectbound",
 		binding:     "long",
-	},
-	{
-		id:        "perfect bound 4up",
-		nup:       4,
-		pageCount: 16,
 		expectedPageOrder: []int{
 			1, 3, 5, 7,
 			4, 2, 8, 6,
 			9, 11, 13, 15,
 			12, 10, 16, 14,
 		},
-		papersize:   "A6", // portrait, long-edge binding
-		bookletType: "perfectbound",
-		binding:     "long",
+		expectedPageRotations: make([]bool, 16), // no rotations
 	},
 	{
-		id:        "perfect bound 4up landscape short-edge",
-		nup:       4,
-		pageCount: 16,
+		id:          "perfect bound 4up landscape short-edge",
+		nup:         4,
+		pageCount:   16,
+		papersize:   "A6L", // landscape, short-edge binding
+		bookletType: "perfectbound",
+		binding:     "short",
 		expectedPageOrder: []int{
 			1, 3, 5, 7,
 			6, 8, 2, 4,
 			9, 11, 13, 15,
 			14, 16, 10, 12,
 		},
-		papersize:   "A6L", // landscape, short-edge binding
-		bookletType: "perfectbound",
-		binding:     "short",
+		expectedPageRotations: []bool{
+			false, false, false, false,
+			true, true, true, true, // even pages are rotated
+			false, false, false, false,
+			true, true, true, true,
+		},
 	},
 	{
-		id:        "perfect bound 8up",
-		nup:       8,
-		pageCount: 16,
+		id:          "perfect bound 8up portrait long-edge",
+		nup:         8,
+		pageCount:   16,
+		papersize:   "A6", // portrait, long-edge binding
+		bookletType: "perfectbound",
+		binding:     "long",
 		expectedPageOrder: []int{
 			1, 3, 5, 7, 9, 11, 13, 15,
 			4, 2, 8, 6, 12, 10, 16, 14,
 		},
-		papersize:   "A6", // portrait, long-edge binding
+		expectedPageRotations: []bool{
+			false, false, false, false, false, false, false, false,
+			true, true, true, true, true, true, true, true,
+		},
+	},
+	{
+		id:          "perfect bound 8up landscape short-edge",
+		nup:         8,
+		pageCount:   16,
+		papersize:   "A6L",
 		bookletType: "perfectbound",
-		binding:     "long",
+		binding:     "short",
+		expectedPageOrder: []int{
+			1, 3, 5, 7, 9, 11, 13, 15,
+			10, 12, 14, 16, 2, 4, 6, 8,
+		},
+		expectedPageRotations: make([]bool, 16), // no rotations
 	},
 	// signatures
 	{
@@ -359,16 +390,23 @@ func TestBookletPageOrder(t *testing.T) {
 				pageNumbers[i+1] = true
 			}
 			pageOrder := make([]int, len(test.expectedPageOrder))
+			pageRot := make([]bool, len(test.expectedPageOrder))
 			out := GetBookletOrdering(pageNumbers, nup)
 			if len(test.expectedPageOrder) != len(out) {
 				tt.Fatalf("page order output has the wrong length, expected %d but got %d", len(test.expectedPageOrder), len(out))
 			}
 			for i, p := range out {
 				pageOrder[i] = p.Number
+				pageRot[i] = p.Rotate
 			}
 			for i, expected := range test.expectedPageOrder {
 				if pageOrder[i] != expected {
 					tt.Fatal("incorrect page order\nexpected:", arrayToString(test.expectedPageOrder), "\n     got:", arrayToString(pageOrder))
+				}
+			}
+			for i, expected := range test.expectedPageRotations {
+				if pageRot[i] != expected {
+					tt.Fatal("incorrect page rotation\nexpected:", arrayBoolToString(test.expectedPageRotations), "\n     got:", arrayBoolToString(pageRot))
 				}
 			}
 		})
@@ -379,6 +417,14 @@ func arrayToString(arr []int) string {
 	out := make([]string, len(arr))
 	for i, n := range arr {
 		out[i] = fmt.Sprintf("%02d", n)
+	}
+	return fmt.Sprintf("[%s]", strings.Join(out, " "))
+}
+
+func arrayBoolToString(arr []bool) string {
+	out := make([]string, len(arr))
+	for i, n := range arr {
+		out[i] = fmt.Sprintf("%t", n)
 	}
 	return fmt.Sprintf("[%s]", strings.Join(out, " "))
 }
