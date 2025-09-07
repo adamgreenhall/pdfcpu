@@ -365,12 +365,12 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 		// back side
 		p = bookletSheetNumber*twoN + 2*((positionNumber-N)%twoN) + 2
 		if N == 4 || N == 6 || N == 8 {
-			if N == 4 && nup.PageDim.Landscape() { // landscape pages on portrait sheets
+			if nup.PageDim.Landscape() { // landscape pages on portrait sheets
 				// flip top and bottom rows to account for landscape rotation and the page handling flip (short edge flip, no duplex)
-				if positionNumber%N < 2 { // top side
-					p += 4
+				if positionNumber%N < N/2 { // top side
+					p += N
 				} else { // bottom side
-					p -= 4
+					p -= N
 				}
 			} else { // portrait pages on portrait sheets
 				// flip left and right columns to account for the page handling flip (short edge flip, no duplex)
@@ -381,8 +381,9 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 				}
 			}
 		}
-		// account for page handling flip (short edge flip, no duplex)
-		rotate = N == 2 || nup.PageDim.Landscape()
+		// in these cases the page is rotated to fit onto the sheet
+		// so we need to account for page handling flip (short edge flip, no duplex)
+		rotate = N == 2 || (N == 4 && nup.PageDim.Landscape()) || (N == 8 && nup.PageDim.Portrait())
 	}
 	return getPageNumber(pageNumbers, p-1), rotate // p is one-indexed and we want zero-indexed
 }
@@ -434,6 +435,7 @@ func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []
 		case 6:
 			pageNumberFn = nupLRTBOutputPageNr
 		case 8:
+			// FIXME: 8-up assumes that output paper size is always portrait
 			if nup.BookletBinding == model.ShortEdge {
 				pageNumberFn = nupLRTBOutputPageNr
 			} else { // long edge
