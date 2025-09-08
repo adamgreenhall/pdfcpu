@@ -191,40 +191,54 @@ var bookletTestCases = []pageOrderResults{
 		binding:     "long",
 	},
 	{
-		id:        "8up portrait short edge",
-		nup:       8,
-		pageCount: 16,
-		expectedPageOrder: []int{
-			16, 1, 14, 3, 12, 5, 10, 7,
-			2, 15, 4, 13, 6, 11, 8, 9,
-		},
+		id:          "8up portrait short edge",
+		nup:         8,
+		pageCount:   16,
 		papersize:   "A6",
 		bookletType: "booklet",
 		binding:     "short",
+		expectedPageOrder: []int{
+			16, 1,
+			14, 3,
+			12, 5,
+			10, 7,
+			2, 15, // page 2
+			4, 13,
+			6, 11,
+			8, 9,
+		},
+		expectedPageRotations: make([]bool, 16), // no rotations
 	},
 	{
-		id:        "8up landscape short edge",
-		nup:       8,
-		pageCount: 16,
-		expectedPageOrder: []int{
-			16, 1, 14, 3, 12, 5, 10, 7,
-			2, 15, 4, 13, 6, 11, 8, 9,
-		},
+		id:          "8up landscape short edge",
+		nup:         8,
+		pageCount:   16,
 		papersize:   "A6L",
 		bookletType: "booklet",
 		binding:     "short",
+		expectedPageOrder: []int{
+			10, 12, 14, 16,
+			7, 5, 3, 1,
+			8, 6, 4, 2, // page 2
+			9, 11, 13, 15,
+		}, expectedPageRotations: make([]bool, 16), // no rotations
 	},
 	{
-		id:        "8up landscape long edge",
-		nup:       8,
-		pageCount: 16,
-		expectedPageOrder: []int{
-			1, 14, 16, 3, 5, 10, 12, 7,
-			13, 2, 4, 15, 9, 6, 8, 11,
-		},
+		id:          "8up landscape long edge",
+		nup:         8,
+		pageCount:   16,
 		papersize:   "A6L",
 		bookletType: "booklet",
 		binding:     "long",
+		expectedPageOrder: []int{
+			12, 5, 16, 1,
+			7, 10, 3, 14,
+			8, 9, 4, 13, // page 2
+			11, 6, 15, 2,
+		}, expectedPageRotations: []bool{
+			true, true, true, true, false, false, false, false, // rotate bottom row
+			true, true, true, true, false, false, false, false,
+		},
 	},
 	// perfect bound
 	{
