@@ -302,50 +302,46 @@ func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []i
 	return pageNr, false
 }
 
-func nup8OutputPageNr(portraitPositionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (pageNumber int, rotate bool) {
+	if nup.PageDim.Landscape() {
+		positionNumber = landscapeToPortraitSheetPosition(positionNumber)
+	}
+	if nup.BookletBinding == model.ShortEdge {
+		return nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
+	}
+	// else long edge
 	// 8up sheet has four rows and two columns
 	// but the spreads are NOT across the two columns - instead the spreads are rotated 90deg to fit in a portrait orientation on the sheet
-	// rather than coding up an entire new imposition, we're going to use the left-down-top-bottom imposition as a base
-	// and the rotate the spreads (ie reorder) to fit on the sheet
+	// rather than coding up an entire new imposition, we're going to use the left-right-top-bottom imposition as a base
+	pageNumber, _ = nupLRTBOutputPageNr(n8upSpreadPosition(positionNumber), inputPageCount, pageNumbers, nup)
 
-	bookletSheetSideNumber := portraitPositionNumber / 8
-	var landscapePositionNumber int
+	rotate = positionNumber%2 == 1 // rotate right column for portrait
+	if nup.PageDim.Landscape() {
+		rotate = !rotate // rotate bottom row for landscape
+	}
+	return pageNumber, rotate
+}
+
+func landscapeToPortraitSheetPosition(positionNumber int) int {
+	// convert from landscape sheet position to portrait sheet position, by rotating counter clockwise
+	return []int{6, 4, 2, 0, 7, 5, 3, 1}[positionNumber%8] + positionNumber/8*8
+}
+func n8upSpreadPosition(positionNumber int) int {
+	// rotate the spreads (ie reorder) to fit on the sheet
+	bookletSheetSideNumber := positionNumber / 8
+	var out int
 	switch bookletSheetSideNumber % 2 {
 	case 0: // front side
 		// rotate the block of four pages 90deg clockwise to go from portrait to landscape.             sequence=[1,3,0,2]
 		// then because we are rotating the right side by 180deg - so need to change to those positions. sequence=[1,2,0,3]
-		switch portraitPositionNumber % 4 {
-		case 0:
-			landscapePositionNumber = 1
-		case 1:
-			landscapePositionNumber = 2
-		case 2:
-			landscapePositionNumber = 0
-		case 3:
-			landscapePositionNumber = 3
-		}
+		out = []int{1, 2, 0, 3}[positionNumber%4]
 	case 1: // back side
 		// rotate the block of four pages 90deg anti-clockwise to go from portrait to landscape.           sequence=[2,0,3,1]
 		// then because we are rotating the *left* side by 180deg - so need to change to those positions. sequence=[3,0,2,1]
 		// this is different from the front side because of the non-duplex sheet handling flip along the short edge
-
-		switch portraitPositionNumber % 4 {
-		case 0:
-			landscapePositionNumber = 3
-		case 1:
-			landscapePositionNumber = 0
-		case 2:
-			landscapePositionNumber = 2
-		case 3:
-			landscapePositionNumber = 1
-		}
-
+		out = []int{3, 0, 2, 1}[positionNumber%4]
 	}
-	positionNumber := landscapePositionNumber + portraitPositionNumber/4*4
-	pageNumber, _ := nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
-	// rotate right side so that bottom edge of pages is on the center cut
-	rotate := portraitPositionNumber%2 == 1
-	return pageNumber, rotate
+	return out + positionNumber/4*4
 }
 
 func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
@@ -435,12 +431,7 @@ func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []
 		case 6:
 			pageNumberFn = nupLRTBOutputPageNr
 		case 8:
-			// FIXME: 8-up assumes that output paper size is always portrait
-			if nup.BookletBinding == model.ShortEdge {
-				pageNumberFn = nupLRTBOutputPageNr
-			} else { // long edge
-				pageNumberFn = nup8OutputPageNr
-			}
+			pageNumberFn = nup8OutputPageNr
 		}
 	case model.BookletPerfectBound:
 		pageNumberFn = nupPerfectBound
