@@ -307,7 +307,11 @@ func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int,
 		positionNumber = landscapeToPortraitSheetPosition(positionNumber)
 	}
 	if nup.BookletBinding == model.ShortEdge {
-		return nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
+		pageNumber, _ = nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
+		if nup.PageDim.Landscape() {
+			return pageNumber, true
+		}
+		return pageNumber, false
 	}
 	// else long edge
 	// 8up sheet has four rows and two columns
