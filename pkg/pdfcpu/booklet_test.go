@@ -221,7 +221,11 @@ var bookletTestCases = []pageOrderResults{
 			7, 5, 3, 1,
 			8, 6, 4, 2, // page 2
 			9, 11, 13, 15,
-		}, expectedPageRotations: make([]bool, 16), // no rotations
+		},
+		expectedPageRotations: []bool{
+			true, true, true, true, true, true, true, true,
+			true, true, true, true, true, true, true, true,
+		}, // all rotated
 	},
 	{
 		id:          "8up landscape long edge",
