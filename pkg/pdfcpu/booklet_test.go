@@ -259,6 +259,7 @@ var bookletTestCases = []pageOrderResults{
 			6, 8,
 		},
 		expectedPageRotations: []bool{
+			true, true, // expect rotation so that top of page contents on front sheet sides are on right -- same as 2up booklet
 			false, false,
 			true, true,
 			false, false,
