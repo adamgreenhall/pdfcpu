@@ -100,21 +100,36 @@ func getPageNumber(pageNumbers []int, n int) int {
 	return pageNumbers[n]
 }
 
-type pageNumberFunction func(inputPageNr int, pageCount int, pageNumbers []int, nup *model.NUp) (int, bool)
+// input: positionNumber in the output grid
+// output: original pdf page number and rotation, for this grid position
+type pageNumberFunction func(positionNumber int, pageCount int, pageNumbers []int, nup *model.NUp) (pageNumber int, rotated bool)
 
-func nup2OutputPageNr(inputPageNr, inputPageCount int, pageNumbers []int, _ *model.NUp) (int, bool) {
-	// (output page, input page) = [(1,n), (2,1), (3, n-1), (4, 2), (5, n-2), (6, 3), ...]
+func nup2OutputPageNr(pos, pageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+	// (pos+1, pageNr) = [(1,n), (2,1), (3, n-1), (4, 2), (5, n-2), (6, 3), ...] -- for portrait
+	// for landscape, flip the above left-right, ie [(1, 1), (2, n), ...]
+	isPortrait := nup.PageDim.Portrait()
+	countDown := pageCount - 1 - pos/2
+	countUp := pos / 2
 	var p int
-	if inputPageNr%2 == 0 {
-		p = inputPageCount - 1 - inputPageNr/2
+	if pos%2 == 0 {
+		if isPortrait {
+			p = countDown // top
+		} else {
+			p = countUp // left
+		}
 	} else {
-		p = (inputPageNr - 1) / 2
+		if isPortrait {
+			p = countUp // bottom
+		} else {
+			p = countDown // right
+		}
 	}
 	pageNr := getPageNumber(pageNumbers, p)
 
-	// Rotate odd output pages (the back sides) by 180 degrees.
 	var rotate bool
-	if inputPageNr%4 < 2 {
+	if pos%4 < 2 {
+		// Rotate pages on the odd output sheets (the back sides) by 180 degrees
+		// rotated pages are oriented with the bottoms on the right
 		rotate = true
 	}
 	return pageNr, rotate
@@ -349,8 +364,6 @@ func n8upSpreadPosition(positionNumber int) int {
 }
 
 func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
-	// input: positionNumber
-	// output: original page number and rotation
 	var p int
 	var rotate bool
 	N := nup.N()
@@ -566,7 +579,7 @@ func BookletFromImages(ctx *model.Context, fileNames []string, nup *model.NUp, p
 func BookletFromPDF(ctx *model.Context, selectedPages types.IntSet, nup *model.NUp) error {
 	n := int(nup.Grid.Width * nup.Grid.Height)
 	if !(n == 2 || n == 4 || n == 6 || n == 8) {
-		return fmt.Errorf("pdfcpu: booklet must have n={2,4,6,8} pages per sheet, got %d", n)
+		return fmt.Errorf("booklet must have n={2,4,6,8} pages per sheet, got %d", n)
 	}
 
 	var mb *types.Rectangle

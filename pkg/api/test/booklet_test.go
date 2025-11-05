@@ -140,6 +140,17 @@ func TestBooklet(t *testing.T) {
 			false,
 		},
 
+		// 2-up landscape booklet
+		{"TestBookletFromPDF_2up_landscape",
+			[]string{filepath.Join(inDir, "bookletTestLandscape.pdf")},
+			filepath.Join(outDir, "BookletFromPDF2Up_landscape.pdf"),
+			[]string{"1-8"},
+			"p:LedgerL, ma:10, bgcol:#f7e6c7",
+			"points",
+			2,
+			false,
+		},
+
 		// 2-up booklet from PDF on Letter where the number of pages don't fill the whole sheet
 		{"TestBookletFromPDF2UpLetterWithTrailingBlankPages",
 			[]string{filepath.Join(inDir, "bookletTest.pdf")},
