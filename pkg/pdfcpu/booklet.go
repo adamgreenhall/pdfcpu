@@ -361,6 +361,7 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 	if bookletSheetSideNumber%2 == 0 {
 		// front side
 		p = bookletSheetNumber*twoN + 2*(positionNumber%twoN) + 1
+		rotate = N == 2
 	} else {
 		// back side
 		p = bookletSheetNumber*twoN + 2*((positionNumber-N)%twoN) + 2
@@ -383,7 +384,7 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 		}
 		// in these cases the page is rotated to fit onto the sheet
 		// so we need to account for page handling flip (short edge flip, no duplex)
-		rotate = N == 2 || (N == 4 && nup.PageDim.Landscape()) || (N == 8 && nup.PageDim.Portrait())
+		rotate = (N == 4 && nup.PageDim.Landscape()) || (N == 8 && nup.PageDim.Portrait())
 	}
 	return getPageNumber(pageNumbers, p-1), rotate // p is one-indexed and we want zero-indexed
 }
