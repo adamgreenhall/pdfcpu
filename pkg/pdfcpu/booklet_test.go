@@ -69,6 +69,22 @@ var bookletTestCases = []pageOrderResults{
 		bookletType: "booklet",
 		binding:     "long",
 	},
+	{
+		id:        "2up landscape",
+		nup:       2,
+		pageCount: 4,
+		expectedPageOrder: []int{
+			1, 4, // flipped left-right from portrait
+			2, 3,
+		},
+		expectedPageRotations: []bool{
+			true, true,
+			false, false,
+		},
+		papersize:   "A4L", // landscape, long-edge binding
+		binding:     "long",
+		bookletType: "booklet",
+	},
 	// basic booklet sidefold test cases
 	{
 		id:        "booklet portrait long edge",
@@ -263,7 +279,6 @@ var bookletTestCases = []pageOrderResults{
 			false, false,
 			true, true,
 			false, false,
-			true, true,
 		},
 	},
 	{
