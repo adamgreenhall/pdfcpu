@@ -40,15 +40,16 @@ var (
 )
 
 var (
-	NUpValues = []int{2, 3, 4, 6, 8, 9, 12, 16}
+	NUpValues = []int{2, 3, 4, 6, 8, 9, 10, 12, 16}
 	nUpDims   = map[int]types.Dim{
-		2:  {Width: 2, Height: 1},
-		3:  {Width: 3, Height: 1},
+		// nup grid defaults for portrait page
+		2:  {Width: 1, Height: 2},
+		3:  {Width: 1, Height: 3},
 		4:  {Width: 2, Height: 2},
-		6:  {Width: 3, Height: 2},
-		8:  {Width: 4, Height: 2},
+		6:  {Width: 2, Height: 3},
+		8:  {Width: 2, Height: 4},
 		9:  {Width: 3, Height: 3},
-		12: {Width: 4, Height: 3},
+		12: {Width: 3, Height: 4},
 		16: {Width: 4, Height: 4},
 	}
 )
@@ -396,7 +397,7 @@ func ParseNUpValue(n int, nUp *model.NUp) error {
 	if !ok {
 		return fmt.Errorf("unknown grid dimensions for nup=%d", n)
 	}
-	if portrait {
+	if !portrait {
 		d.Width, d.Height = d.Height, d.Width
 	}
 

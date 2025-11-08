@@ -94,9 +94,9 @@ func ImageBookletConfig(val int, desc string, conf *model.Configuration) (*model
 
 // input: positionNumber in the output grid
 // output: original pdf page number and rotation, for this grid position
-type pageNumberFunction func(positionNumber int, pageCount int, pageNumbers []int, nup *model.NUp) (pageIndex int, rotated bool)
+type pageNumberFunction func(positionNumber int, pageCount int, nup *model.NUp) (pageIndex int, rotated bool)
 
-func nup2OutputPageNr(pos, pageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nup2OutputPageNr(pos, pageCount int, nup *model.NUp) (int, bool) {
 	// (pos+1, pageNr) = [(1,n), (2,1), (3, n-1), (4, 2), (5, n-2), (6, 3), ...] -- for portrait
 	// for landscape, flip the above left-right, ie [(1, 1), (2, n), ...]
 	isPortrait := nup.PageDim.Portrait()
@@ -144,25 +144,25 @@ func get4upPos(pos int, isLandscape bool) (out int) {
 	return pos % 4
 }
 
-func nup4OutputPageNr(inputPageNr int, pageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nup4OutputPageNr(inputPageNr int, pageCount int, nup *model.NUp) (int, bool) {
 	switch nup.BookletType {
 	case model.Booklet:
 		// simple booklets are collated by collecting the top of the sheet, then the bottom, then the top of the next sheet, and so on.
 		// this is conceptually easier for collation without specialized tools.
 		if nup.IsTopFoldBinding() {
-			return nup4BasicTopFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
+			return nup4BasicTopFoldOutputPageNr(inputPageNr, pageCount, nup)
 		} else {
-			return nup4BasicSideFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
+			return nup4BasicSideFoldOutputPageNr(inputPageNr, pageCount, nup)
 		}
 	case model.BookletAdvanced:
 		// advanced booklets have a different collation pattern: collect the top of each sheet and then the bottom of each sheet.
 		// this allows printers to fold the sheets twice and then cut along one of the folds.
-		return nup4AdvancedSideFoldOutputPageNr(inputPageNr, pageCount, pageNumbers, nup)
+		return nup4AdvancedSideFoldOutputPageNr(inputPageNr, pageCount, nup)
 	}
 	return 0, false
 }
 
-func nup4BasicSideFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nup4BasicSideFoldOutputPageNr(positionNumber int, inputPageCount int, nup *model.NUp) (int, bool) {
 	var p int
 	bookletSheetSideNumber := positionNumber / 4
 	bookletPageNumber := positionNumber / 8
@@ -201,7 +201,7 @@ func nup4BasicSideFoldOutputPageNr(positionNumber int, inputPageCount int, pageN
 	return p - 1, rotate // p is one-indexed and we want zero-indexed
 }
 
-func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, nup *model.NUp) (int, bool) {
 	var p int
 	bookletSheetSideNumber := positionNumber / 4
 	bookletSheetNumber := positionNumber / 8
@@ -238,7 +238,7 @@ func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNu
 	return p - 1, rotate // p is one-indexed and we want zero-indexed
 }
 
-func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, nup *model.NUp) (int, bool) {
 	// (output page, input page) = [(1,n), (2,1), (3, n/2+1), (4, n/2-0), (5, 2), (6, n-1), (7, n/2-1), (8, n/2+2) ...]
 	bookletPageNumber := inputPageNr / 4
 	var p int
@@ -276,7 +276,7 @@ func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, pageN
 	return p, rotate
 }
 
-func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, nup *model.NUp) (int, bool) {
 	// move from left to right and then from top to bottom with no rotation
 	var p int
 	N := nup.N()
@@ -304,12 +304,12 @@ func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []i
 	return p - 1, false // p is one-indexed and we want zero-indexed
 }
 
-func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (pageIdx int, rotate bool) {
+func nup8OutputPageNr(positionNumber int, inputPageCount int, nup *model.NUp) (pageIdx int, rotate bool) {
 	if nup.PageDim.Landscape() {
 		positionNumber = landscapeToPortraitSheetPosition8up(positionNumber)
 	}
 	if nup.BookletBinding == model.ShortEdge {
-		pageIdx, _ = nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
+		pageIdx, _ = nupLRTBOutputPageNr(positionNumber, inputPageCount, nup)
 		if nup.PageDim.Landscape() {
 			return pageIdx, true
 		}
@@ -319,7 +319,7 @@ func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int,
 	// 8up sheet has four rows and two columns
 	// but the spreads are NOT across the two columns - instead the spreads are rotated 90deg to fit in a portrait orientation on the sheet
 	// rather than coding up an entire new imposition, we're going to use the left-right-top-bottom imposition as a base
-	pageIdx, _ = nupLRTBOutputPageNr(n8upSpreadPosition(positionNumber), inputPageCount, pageNumbers, nup)
+	pageIdx, _ = nupLRTBOutputPageNr(n8upSpreadPosition(positionNumber), inputPageCount, nup)
 
 	rotate = positionNumber%2 == 1 // rotate right column for portrait
 	if nup.PageDim.Landscape() {
@@ -350,7 +350,7 @@ func n8upSpreadPosition(positionNumber int) int {
 	return out + positionNumber/4*4
 }
 
-func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
+func nupPerfectBound(positionNumber int, inputPageCount int, nup *model.NUp) (int, bool) {
 	var p int
 	var rotate bool
 	N := nup.N()
@@ -443,7 +443,7 @@ func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []
 	}
 
 	for i := 0; i < pageCount; i++ {
-		pageIdx, rotate := pageNumberFn(i, pageCount, pageNumbers, nup)
+		pageIdx, rotate := pageNumberFn(i, pageCount, nup)
 		if pageIdx >= len(pageNumbers) {
 			bookletPages[i].IsBlank = true
 			bookletPages[i].Number = pageIdx + pageNumbers[0] // typically pageIdx+1, but the pageNumbers[0] accounts for signatures
