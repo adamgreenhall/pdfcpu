@@ -264,6 +264,27 @@ var bookletTestCases = []pageOrderResults{
 			true, true, true, true, false, false, false, false,
 		},
 	},
+	// 10up
+	{
+		id:        "10up",
+		nup:       10,
+		pageCount: 20,
+		expectedPageOrder: []int{
+			20, 1,
+			18, 3,
+			16, 5,
+			14, 7,
+			12, 9,
+			2, 19, // second side
+			4, 17,
+			6, 15,
+			8, 13,
+			10, 11,
+		},
+		papersize:   "A6",
+		bookletType: "booklet",
+		binding:     "short",
+	},
 	// perfect bound
 	{
 		id:          "perfect bound 2up",

@@ -32,7 +32,7 @@ import (
 
 var errInvalidBookletAdvanced = errors.New("pdfcpu booklet advanced cannot have binding along the top (portrait short-edge, landscape long-edge). use plain booklet instead.")
 
-var NUpValuesForBooklets = []int{2, 4, 6, 8}
+var NUpValuesForBooklets = []int{2, 4, 6, 8, 10}
 
 // DefaultBookletConfig returns the default configuration for a booklet
 func DefaultBookletConfig() *model.NUp {
@@ -433,7 +433,7 @@ func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []
 			pageNumberFn = nup2OutputPageNr
 		case 4:
 			pageNumberFn = nup4OutputPageNr
-		case 6:
+		case 6, 10:
 			pageNumberFn = nupLRTBOutputPageNr
 		case 8:
 			pageNumberFn = nup8OutputPageNr

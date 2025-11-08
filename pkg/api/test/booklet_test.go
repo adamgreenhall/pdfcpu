@@ -285,6 +285,16 @@ func TestBooklet(t *testing.T) {
 			false,
 		},
 
+		// 10-up
+		{"TestBookletFromPDF_10Up",
+			[]string{filepath.Join(inDir, "bookletTestLandscape.pdf")},
+			filepath.Join(outDir, "BookletFromPDF_10Up.pdf"),
+			[]string{"1-20"},
+			"p:A3P, g:on, ma:10, bgcol:#f7e6c7",
+			"points",
+			10,
+			false,
+		},
 		// 2-up multi folio booklet from PDF on A4 using 8 sheets per folio
 		// using the default foliosize:8
 		// Here we print 2 complete folios (2 x 8 sheets) + 1 partial folio

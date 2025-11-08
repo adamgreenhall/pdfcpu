@@ -49,6 +49,7 @@ var (
 		6:  {Width: 2, Height: 3},
 		8:  {Width: 2, Height: 4},
 		9:  {Width: 3, Height: 3},
+		10: {Width: 2, Height: 5},
 		12: {Width: 3, Height: 4},
 		16: {Width: 4, Height: 4},
 	}
