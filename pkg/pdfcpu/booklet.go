@@ -530,7 +530,7 @@ func BookletFromImages(ctx *model.Context, fileNames []string, nup *model.NUp, p
 
 		rDest := rr[i%len(rr)]
 
-		if bp.Number == 0 {
+		if bp.IsBlank {
 			// This is an empty page at the end of a booklet.
 			if nup.BgColor != nil {
 				draw.FillRectNoBorder(&buf, rDest, *nup.BgColor)
