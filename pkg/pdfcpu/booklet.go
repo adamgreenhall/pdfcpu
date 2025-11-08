@@ -319,7 +319,7 @@ func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []i
 
 func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (pageNumber int, rotate bool) {
 	if nup.PageDim.Landscape() {
-		positionNumber = landscapeToPortraitSheetPosition(positionNumber)
+		positionNumber = landscapeToPortraitSheetPosition8up(positionNumber)
 	}
 	if nup.BookletBinding == model.ShortEdge {
 		pageNumber, _ = nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
@@ -341,7 +341,7 @@ func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int,
 	return pageNumber, rotate
 }
 
-func landscapeToPortraitSheetPosition(positionNumber int) int {
+func landscapeToPortraitSheetPosition8up(positionNumber int) int {
 	// convert from landscape sheet position to portrait sheet position, by rotating counter clockwise
 	return []int{6, 4, 2, 0, 7, 5, 3, 1}[positionNumber%8] + positionNumber/8*8
 }
@@ -578,8 +578,8 @@ func BookletFromImages(ctx *model.Context, fileNames []string, nup *model.NUp, p
 // BookletFromPDF creates a booklet version of the PDF represented by xRefTable.
 func BookletFromPDF(ctx *model.Context, selectedPages types.IntSet, nup *model.NUp) error {
 	n := int(nup.Grid.Width * nup.Grid.Height)
-	if !(n == 2 || n == 4 || n == 6 || n == 8) {
-		return fmt.Errorf("booklet must have n={2,4,6,8} pages per sheet, got %d", n)
+	if !types.IntMemberOf(n, NUpValuesForBooklets) {
+		return fmt.Errorf("booklet must have nup in %v, got %d", NUpValuesForBooklets, n)
 	}
 
 	var mb *types.Rectangle
