@@ -392,7 +392,10 @@ func ParseNUpValue(n int, nUp *model.NUp) error {
 		portrait = types.RectForDim(nUp.PageDim.Width, nUp.PageDim.Height).Portrait()
 	}
 
-	d := nUpDims[n]
+	d, ok := nUpDims[n]
+	if !ok {
+		return fmt.Errorf("unknown grid dimensions for nup=%d", n)
+	}
 	if portrait {
 		d.Width, d.Height = d.Height, d.Width
 	}
