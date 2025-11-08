@@ -65,8 +65,9 @@ func (b BookletBinding) String() string {
 }
 
 type BookletPage struct {
-	Number int
-	Rotate bool
+	Number  int
+	Rotate  bool
+	IsBlank bool
 }
 
 func drawGuideLineLabel(w io.Writer, x, y float64, s string, mb *types.Rectangle, fm FontMap, rot int) {

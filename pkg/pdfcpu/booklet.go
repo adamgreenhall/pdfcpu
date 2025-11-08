@@ -102,7 +102,7 @@ func getPageNumber(pageNumbers []int, n int) int {
 
 // input: positionNumber in the output grid
 // output: original pdf page number and rotation, for this grid position
-type pageNumberFunction func(positionNumber int, pageCount int, pageNumbers []int, nup *model.NUp) (pageNumber int, rotated bool)
+type pageNumberFunction func(positionNumber int, pageCount int, pageNumbers []int, nup *model.NUp) (pageIndex int, rotated bool)
 
 func nup2OutputPageNr(pos, pageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
 	// (pos+1, pageNr) = [(1,n), (2,1), (3, n-1), (4, 2), (5, n-2), (6, 3), ...] -- for portrait
@@ -124,7 +124,6 @@ func nup2OutputPageNr(pos, pageCount int, pageNumbers []int, nup *model.NUp) (in
 			p = countDown // right
 		}
 	}
-	pageNr := getPageNumber(pageNumbers, p)
 
 	var rotate bool
 	if pos%4 < 2 {
@@ -132,7 +131,7 @@ func nup2OutputPageNr(pos, pageCount int, pageNumbers []int, nup *model.NUp) (in
 		// rotated pages are oriented with the bottoms on the right
 		rotate = true
 	}
-	return pageNr, rotate
+	return p, rotate
 }
 
 func get4upPos(pos int, isLandscape bool) (out int) {
@@ -202,13 +201,12 @@ func nup4BasicSideFoldOutputPageNr(positionNumber int, inputPageCount int, pageN
 			p = 4 + n
 		}
 	}
-	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
 	// Rotate bottom row of each output sheet by 180 degrees.
 	var rotate bool
 	if positionNumber%4 >= 2 {
 		rotate = true
 	}
-	return pageNr, rotate
+	return p - 1, rotate // p is one-indexed and we want zero-indexed
 }
 
 func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
@@ -240,13 +238,12 @@ func nup4BasicTopFoldOutputPageNr(positionNumber int, inputPageCount int, pageNu
 			p = 2 + 4*bookletSheetNumber
 		}
 	}
-	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
 	// Rotate right side of output page by 180 degrees.
 	var rotate bool
 	if positionNumber%2 == 1 {
 		rotate = true
 	}
-	return pageNr, rotate
+	return p - 1, rotate // p is one-indexed and we want zero-indexed
 }
 
 func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
@@ -278,14 +275,13 @@ func nup4AdvancedSideFoldOutputPageNr(inputPageNr int, inputPageCount int, pageN
 			p = inputPageCount/2 + bookletPageNumber
 		}
 	}
-	pageNr := getPageNumber(pageNumbers, p)
 
 	// Rotate bottom row of each output page by 180 degrees.
 	var rotate bool
 	if inputPageNr%4 >= 2 {
 		rotate = true
 	}
-	return pageNr, rotate
+	return p, rotate
 }
 
 func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (int, bool) {
@@ -313,32 +309,31 @@ func nupLRTBOutputPageNr(positionNumber int, inputPageCount int, pageNumbers []i
 			p = inputPageCount - N*bookletSheetNumber - positionNumber%N
 		}
 	}
-	pageNr := getPageNumber(pageNumbers, p-1) // p is one-indexed and we want zero-indexed
-	return pageNr, false
+	return p - 1, false // p is one-indexed and we want zero-indexed
 }
 
-func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (pageNumber int, rotate bool) {
+func nup8OutputPageNr(positionNumber int, inputPageCount int, pageNumbers []int, nup *model.NUp) (pageIdx int, rotate bool) {
 	if nup.PageDim.Landscape() {
 		positionNumber = landscapeToPortraitSheetPosition8up(positionNumber)
 	}
 	if nup.BookletBinding == model.ShortEdge {
-		pageNumber, _ = nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
+		pageIdx, _ = nupLRTBOutputPageNr(positionNumber, inputPageCount, pageNumbers, nup)
 		if nup.PageDim.Landscape() {
-			return pageNumber, true
+			return pageIdx, true
 		}
-		return pageNumber, false
+		return pageIdx, false
 	}
 	// else long edge
 	// 8up sheet has four rows and two columns
 	// but the spreads are NOT across the two columns - instead the spreads are rotated 90deg to fit in a portrait orientation on the sheet
 	// rather than coding up an entire new imposition, we're going to use the left-right-top-bottom imposition as a base
-	pageNumber, _ = nupLRTBOutputPageNr(n8upSpreadPosition(positionNumber), inputPageCount, pageNumbers, nup)
+	pageIdx, _ = nupLRTBOutputPageNr(n8upSpreadPosition(positionNumber), inputPageCount, pageNumbers, nup)
 
 	rotate = positionNumber%2 == 1 // rotate right column for portrait
 	if nup.PageDim.Landscape() {
 		rotate = !rotate // rotate bottom row for landscape
 	}
-	return pageNumber, rotate
+	return pageIdx, rotate
 }
 
 func landscapeToPortraitSheetPosition8up(positionNumber int) int {
@@ -399,7 +394,7 @@ func nupPerfectBound(positionNumber int, inputPageCount int, pageNumbers []int, 
 		// so we need to account for page handling flip (short edge flip, no duplex)
 		rotate = (N == 4 && nup.PageDim.Landscape()) || (N == 8 && nup.PageDim.Portrait())
 	}
-	return getPageNumber(pageNumbers, p-1), rotate // p is one-indexed and we want zero-indexed
+	return p - 1, rotate // p is one-indexed and we want zero-indexed
 }
 
 func GetBookletOrdering(pages types.IntSet, nup *model.NUp) []model.BookletPage {
@@ -456,8 +451,15 @@ func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []
 	}
 
 	for i := 0; i < pageCount; i++ {
-		pageNr, rotate := pageNumberFn(i, pageCount, pageNumbers, nup)
-		bookletPages[i].Number = pageNr
+		pageIdx, rotate := pageNumberFn(i, pageCount, pageNumbers, nup)
+		pgNum := getPageNumber(pageNumbers, pageIdx)
+		if pgNum == 0 {
+			bookletPages[i].IsBlank = true
+			bookletPages[i].Number = pageIdx + pageNumbers[0] // typically pageIdx+1, but the pageNumbers[0] accounts for signatures
+		} else {
+			bookletPages[i].Number = pgNum
+		}
+
 		bookletPages[i].Rotate = rotate
 	}
 	return bookletPages
@@ -487,7 +489,7 @@ func bookletPages(
 
 		rDest := rr[i%len(rr)]
 
-		if bp.Number == 0 {
+		if bp.IsBlank {
 			// This is an empty page at the end.
 			if nup.BgColor != nil {
 				draw.FillRectNoBorder(&buf, rDest, *nup.BgColor)

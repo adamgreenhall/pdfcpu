@@ -22,16 +22,17 @@ import (
 )
 
 type pageOrderResults struct {
-	id                    string
-	nup                   int
-	pageCount             int
-	expectedPageOrder     []int
-	expectedPageRotations []bool
-	papersize             string
-	bookletType           string
-	binding               string
-	useSignatures         bool
-	nPagesPerSignature    int
+	id                       string
+	nup                      int
+	pageCount                int
+	expectedPageOrder        []int
+	expectedPageRotations    []bool
+	expectedBlankAtPositions []int
+	papersize                string
+	bookletType              string
+	binding                  string
+	useSignatures            bool
+	nPagesPerSignature       int
 }
 
 var bookletTestCases = []pageOrderResults{
@@ -58,12 +59,15 @@ var bookletTestCases = []pageOrderResults{
 		nup:       2,
 		pageCount: 10,
 		expectedPageOrder: []int{
-			0, 1,
-			0, 2,
+			12, 1,
+			11, 2,
 			10, 3,
 			9, 4,
 			8, 5,
 			7, 6,
+		},
+		expectedBlankAtPositions: []int{
+			0, 2, // there are only 10 pages, so positions 0 and 2 are blank
 		},
 		papersize:   "A6",
 		bookletType: "booklet",
@@ -395,16 +399,17 @@ var bookletTestCases = []pageOrderResults{
 			9, 4,
 			8, 5,
 			7, 6,
-			0, 13, // signature 2, incomplete, with blanks
-			0, 14,
+			20, 13, // signature 2, incomplete signature because of the page count. with blanks for pg 19,20
+			19, 14,
 			18, 15,
 			17, 16,
 		},
-		papersize:          "A6",
-		bookletType:        "booklet",
-		binding:            "long",
-		useSignatures:      true,
-		nPagesPerSignature: 12,
+		expectedBlankAtPositions: []int{12, 14},
+		papersize:                "A6",
+		bookletType:              "booklet",
+		binding:                  "long",
+		useSignatures:            true,
+		nPagesPerSignature:       12,
 	},
 }
 
@@ -441,6 +446,11 @@ func TestBookletPageOrder(t *testing.T) {
 			for i, expected := range test.expectedPageRotations {
 				if pageRot[i] != expected {
 					tt.Fatal("incorrect page rotation\nexpected:", arrayBoolToString(test.expectedPageRotations), "\n     got:", arrayBoolToString(pageRot))
+				}
+			}
+			for _, idx := range test.expectedBlankAtPositions {
+				if !out[idx].IsBlank {
+					tt.Fatalf("expected blank at position=%d", idx)
 				}
 			}
 		})
