@@ -92,14 +92,6 @@ func ImageBookletConfig(val int, desc string, conf *model.Configuration) (*model
 	return nup, nil
 }
 
-func getPageNumber(pageNumbers []int, n int) int {
-	if n >= len(pageNumbers) {
-		// Zero represents blank page at end of booklet.
-		return 0
-	}
-	return pageNumbers[n]
-}
-
 // input: positionNumber in the output grid
 // output: original pdf page number and rotation, for this grid position
 type pageNumberFunction func(positionNumber int, pageCount int, pageNumbers []int, nup *model.NUp) (pageIndex int, rotated bool)
@@ -452,12 +444,11 @@ func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []
 
 	for i := 0; i < pageCount; i++ {
 		pageIdx, rotate := pageNumberFn(i, pageCount, pageNumbers, nup)
-		pgNum := getPageNumber(pageNumbers, pageIdx)
-		if pgNum == 0 {
+		if pageIdx >= len(pageNumbers) {
 			bookletPages[i].IsBlank = true
 			bookletPages[i].Number = pageIdx + pageNumbers[0] // typically pageIdx+1, but the pageNumbers[0] accounts for signatures
 		} else {
-			bookletPages[i].Number = pgNum
+			bookletPages[i].Number = pageNumbers[pageIdx]
 		}
 
 		bookletPages[i].Rotate = rotate
