@@ -181,6 +181,15 @@ func TestBooklet(t *testing.T) {
 			6,
 			false,
 		},
+		{"TestBookletFromPDF_6up_landscape",
+			[]string{filepath.Join(inDir, "bookletTestLandscape.pdf")},
+			filepath.Join(outDir, "BookletFromPDF_6Up_A3.pdf"),
+			[]string{"1-24"},
+			"p:A3, g:on, ma:10, bgcol:#f7e6c7",
+			"points",
+			6,
+			false,
+		},
 
 		// misc orientations and booklet types on 4-up
 		{"TestBookletFromPDF_4up_portrait_short",
