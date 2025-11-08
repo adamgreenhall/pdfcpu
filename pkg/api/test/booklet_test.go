@@ -174,7 +174,7 @@ func TestBooklet(t *testing.T) {
 		},
 		{"TestBookletFromPDF_6up",
 			[]string{filepath.Join(inDir, "bookletTest.pdf")},
-			filepath.Join(outDir, "BookletFromPDFLedger_6Up.pdf"),
+			filepath.Join(outDir, "BookletFromPDF_6Up_Ledger.pdf"),
 			[]string{"1-24"},
 			"p:LedgerP, g:on, ma:10, bgcol:#f7e6c7",
 			"points",
