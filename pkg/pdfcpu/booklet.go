@@ -389,7 +389,10 @@ func nupPerfectBound(positionNumber int, inputPageCount int, nup *model.NUp) (in
 	return p - 1, rotate // p is one-indexed and we want zero-indexed
 }
 
-func GetBookletOrdering(pages types.IntSet, nup *model.NUp) []model.BookletPage {
+func GetBookletOrdering(pages types.IntSet, nup *model.NUp, ordering orderingFn) []model.BookletPage {
+	if ordering == nil {
+		ordering = getBookletPageOrdering
+	}
 	pageNumbers := sortSelectedPages(pages)
 	pageCount := len(pageNumbers)
 
@@ -415,12 +418,14 @@ func GetBookletOrdering(pages types.IntSet, nup *model.NUp) []model.BookletPage 
 				stop = len(pageNumbers)
 				nPagesPerSignature = pageCount - start
 			}
-			bookletPages = append(bookletPages, getBookletPageOrdering(nup, pageNumbers[start:stop], nPagesPerSignature)...)
+			bookletPages = append(bookletPages, ordering(nup, pageNumbers[start:stop], nPagesPerSignature)...)
 		}
 		return bookletPages
 	}
-	return getBookletPageOrdering(nup, pageNumbers, pageCount)
+	return ordering(nup, pageNumbers, pageCount)
 }
+
+type orderingFn func(nup *model.NUp, pageNumbers []int, pageCount int) []model.BookletPage
 
 func getBookletPageOrdering(nup *model.NUp, pageNumbers []int, pageCount int) []model.BookletPage {
 	bookletPages := make([]model.BookletPage, pageCount)
@@ -461,13 +466,13 @@ func bookletPages(
 	selectedPages types.IntSet,
 	nup *model.NUp,
 	pagesDict types.Dict,
-	pagesIndRef *types.IndirectRef) error {
-
+	pagesIndRef *types.IndirectRef,
+	ordering orderingFn,
+) error {
 	var buf bytes.Buffer
 	formsResDict := types.NewDict()
 	rr := nup.RectsForGrid()
-
-	for i, bp := range GetBookletOrdering(selectedPages, nup) {
+	for i, bp := range GetBookletOrdering(selectedPages, nup, ordering) {
 
 		if i > 0 && i%len(rr) == 0 {
 			// Wrap complete page.
@@ -515,7 +520,7 @@ func BookletFromImages(ctx *model.Context, fileNames []string, nup *model.NUp, p
 	var buf bytes.Buffer
 	rr := nup.RectsForGrid()
 
-	for i, bp := range GetBookletOrdering(selectedPages, nup) {
+	for i, bp := range GetBookletOrdering(selectedPages, nup, nil) {
 
 		if i > 0 && i%len(rr) == 0 {
 
@@ -598,7 +603,44 @@ func BookletFromPDF(ctx *model.Context, selectedPages types.IntSet, nup *model.N
 
 	nup.PageDim = &types.Dim{Width: mb.Width(), Height: mb.Height()}
 
-	if err = bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef); err != nil {
+	if err = bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef, nil); err != nil {
+		return err
+	}
+
+	// Replace original pagesDict.
+	rootDict, err := ctx.Catalog()
+	if err != nil {
+		return err
+	}
+
+	rootDict.Update("Pages", *pagesIndRef)
+	return nil
+}
+
+// BookletFromPDF creates a booklet version of the PDF represented by xRefTable.
+func BookletFromPdfWithOrdering(ctx *model.Context, selectedPages types.IntSet, nup *model.NUp, ordering orderingFn) error {
+	var mb *types.Rectangle
+	if nup.PageDim == nil {
+		nup.PageDim = types.PaperSize[nup.PageSize]
+	}
+	mb = types.RectForDim(nup.PageDim.Width, nup.PageDim.Height)
+
+	pagesDict := types.Dict(
+		map[string]types.Object{
+			"Type":     types.Name("Pages"),
+			"Count":    types.Integer(0),
+			"MediaBox": mb.Array(),
+		},
+	)
+
+	pagesIndRef, err := ctx.IndRefForNewObject(pagesDict)
+	if err != nil {
+		return err
+	}
+
+	nup.PageDim = &types.Dim{Width: mb.Width(), Height: mb.Height()}
+
+	if err = bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef, ordering); err != nil {
 		return err
 	}
 
