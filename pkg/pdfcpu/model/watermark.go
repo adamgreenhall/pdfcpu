@@ -61,6 +61,7 @@ type Watermark struct {
 	FileName                  string              // image or PDF file name
 	Image                     io.Reader           // image reader
 	PDF                       io.ReadSeeker       // PDF read seeker
+	PdfCtx                    *Context            // PDF context
 	TextString                string              // raw display text.
 	TextLines                 []string            // display multiple lines of text.
 	URL                       string              // overlay link annotation for stamps.

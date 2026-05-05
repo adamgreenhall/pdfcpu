@@ -710,7 +710,9 @@ func createPDFResForWM(ctx *model.Context, wm *model.Watermark) error {
 		otherCtx *model.Context
 		err      error
 	)
-	if wm.PDF != nil {
+	if wm.PdfCtx != nil {
+		otherCtx = wm.PdfCtx
+	} else if wm.PDF != nil {
 		otherCtx, err = Read(wm.PDF, nil)
 	} else {
 		otherCtx, err = ReadFile(wm.FileName, nil)
