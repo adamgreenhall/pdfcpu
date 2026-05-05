@@ -251,3 +251,131 @@ func Resize(ctx *model.Context, selectedPages types.IntSet, res *model.Resize) e
 
 	return nil
 }
+
+type ResizeParams struct {
+	PageDim       types.Dim
+	PerPageParams map[int]ResizeParamsPage // if defined use this, otherwise use below
+	ContentDim    types.Dim
+	Anchor        types.Anchor
+	Dx, Dy        float64
+}
+type ResizeParamsPage struct {
+	ContentDim *types.Dim
+	Anchor     types.Anchor
+	Dx, Dy     float64
+}
+
+func ResizeOntoPage(ctx *model.Context, res ResizeParams, selectedPages types.IntSet) error {
+	if res.ContentDim.Width > res.PageDim.Width || res.ContentDim.Height > res.PageDim.Height {
+		return fmt.Errorf("content dimensions must be less than page dimesions")
+	}
+	if len(selectedPages) == 0 {
+		selectedPages = types.IntSet{}
+		for i := 1; i <= ctx.PageCount; i++ {
+			selectedPages[i] = true
+		}
+	}
+
+	for k, v := range selectedPages {
+		if v {
+			if err := resizeOntoPage(ctx, k, res); err != nil {
+				return err
+			}
+		}
+	}
+	ctx.EnsureVersionForWriting()
+	return nil
+}
+
+func resizeOntoPage(ctx *model.Context, pageNr int, res ResizeParams) error {
+
+	d, _, inhPAttrs, err := ctx.PageDict(pageNr, false)
+	if err != nil {
+		return err
+	}
+
+	cropBox := inhPAttrs.MediaBox
+	if inhPAttrs.CropBox != nil {
+		cropBox = inhPAttrs.CropBox
+	}
+
+	// Account for existing rotation.
+	if inhPAttrs.Rotate != 0 {
+		if types.IntMemberOf(inhPAttrs.Rotate, []int{+90, -90, +270, -270}) {
+			w := cropBox.Width()
+			cropBox.UR.X = cropBox.LL.X + cropBox.Height()
+			cropBox.UR.Y = cropBox.LL.Y + w
+		}
+	}
+
+	r, sc, sin, cos, dx, dy := prepResizeOntoPage(res, cropBox, pageNr)
+
+	m := matrix.CalcTransformMatrix(sc, sc, sin, cos, dx, dy)
+
+	var trans bytes.Buffer
+	fmt.Fprintf(&trans, "q %.5f %.5f %.5f %.5f %.5f %.5f cm ", m[0][0], m[0][1], m[1][0], m[1][1], m[2][0], m[2][1])
+
+	bb, err := ctx.PageContent(d, pageNr)
+	if err == model.ErrNoContent {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if inhPAttrs.Rotate != 0 {
+		bbInvRot := append([]byte(" q "), model.ContentBytesForPageRotation(inhPAttrs.Rotate, cropBox.Width(), cropBox.Height())...)
+		bb = append(bbInvRot, bb...)
+		bb = append(bb, []byte(" Q")...)
+	}
+
+	bb = append(trans.Bytes(), bb...)
+	bb = append(bb, []byte(" Q")...)
+
+	cropBox.UR.X = cropBox.LL.X + r.Width()
+	cropBox.UR.Y = cropBox.LL.Y + r.Height()
+
+	sd, _ := ctx.NewStreamDictForBuf(bb)
+	if err := sd.Encode(); err != nil {
+		return err
+	}
+
+	ir, err := ctx.IndRefForNewObject(*sd)
+	if err != nil {
+		return err
+	}
+
+	d["Contents"] = *ir
+
+	d.Update("MediaBox", cropBox.Array())
+	d.Delete("Rotate")
+	d.Delete("CropBox")
+
+	return nil
+}
+
+func prepResizeOntoPage(res ResizeParams, cropBox *types.Rectangle, pageNr int) (r *types.Rectangle, sc, sin, cos, dx, dy float64) {
+	cos = 1
+	r = types.RectForDim(res.PageDim.Width, res.PageDim.Height)
+	a := res.Anchor
+	pgDx := res.Dx
+	pgDy := res.Dy
+	rContent := types.RectForDim(res.ContentDim.Width, res.ContentDim.Height)
+	if res.PerPageParams != nil {
+		if pp, ok := res.PerPageParams[pageNr]; ok {
+			a = pp.Anchor
+			pgDx = pp.Dx
+			pgDy = pp.Dy
+			if pp.ContentDim != nil {
+				rContent = types.RectForDim(pp.ContentDim.Width, pp.ContentDim.Height)
+			}
+		}
+	}
+
+	sc, sin, cos, dx, dy = prepTransform(cropBox, rContent, true)
+
+	pt := model.LowerLeftCorner(r, rContent.Width(), rContent.Height(), a)
+	dx += pt.X + pgDx
+	dy += pt.Y + pgDy
+	return r, sc, sin, cos, dx, dy
+}
