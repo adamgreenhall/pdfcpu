@@ -605,5 +605,8 @@ func BookletFromPDF(ctx *model.Context, selectedPages types.IntSet, nup *model.N
 	}
 
 	rootDict.Update("Pages", *pagesIndRef)
+	if nPages := pagesDict.IntEntry("Count"); nPages != nil {
+		ctx.PageCount = *nPages
+	}
 	return nil
 }
