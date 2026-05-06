@@ -306,6 +306,7 @@ func TestBookletResize(t *testing.T) {
 	if err = pdfcpu.BookletFromPDF(ctx, selectedPages, nup); err != nil {
 		log.Fatal(t, err)
 	}
+	// if not writing context to file here, the resize+write runs without error, but creates all empty pages except for the last page
 	if err = api.WriteContextFile(ctx, filepath.Join(samplesDir, "booklet", "bookletResized.before.pdf")); err != nil {
 		log.Fatal(t, err)
 	}
