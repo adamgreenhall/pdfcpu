@@ -7,6 +7,7 @@
 	},
 	"forms": [
 		{
+			"filename": "Jane",
 			"textfield": [
 				{
 					"name": "firstName1",
@@ -56,9 +57,32 @@
 					"name": "cb12",
 					"value": true
 				}
-			]
+			],
+			"pages": {
+				"1": {
+					"image": [
+						{
+							"src": "../../testdata/resources/qr.png",
+							"pos": [
+								40,
+								350
+							],
+							"width": 290,
+							"height": 200,
+							"bgCol": "#F5F5DC",
+							"border": {
+								"width": 5,
+								"col": "LightGray",
+								"style": "round"
+							},
+							"url": "https://pdfcpu.io"
+						}
+					]
+				}
+			}
 		},
 		{
+			"filename": "Joe.pdf",
 			"textfield": [
 				{
 					"name": "firstName1",
@@ -108,9 +132,32 @@
 					"name": "cb13",
 					"value": true
 				}
-			]
+			],
+			"pages": {
+				"1": {
+					"image": [
+						{
+							"src": "../../testdata/resources/logoVerySmall.png",
+							"pos": [
+								40,
+								350
+							],
+							"width": 290,
+							"height": 200,
+							"bgCol": "#F5F5DC",
+							"border": {
+								"width": 5,
+								"col": "LightGray",
+								"style": "round"
+							},
+							"url": "https://pdfcpu.io"
+						}
+					]
+				}
+			}
 		},
 		{
+			"filename": "Jackie",
 			"textfield": [
 				{
 					"name": "firstName1",
@@ -160,7 +207,29 @@
 					"name": "cb14",
 					"value": true
 				}
-			]
+			],
+			"pages": {
+				"1": {
+					"image": [
+						{
+							"src": "../../testdata/resources/pdfchip3.png",
+							"pos": [
+								40,
+								350
+							],
+							"width": 290,
+							"height": 200,
+							"bgCol": "#F5F5DC",
+							"border": {
+								"width": 5,
+								"col": "LightGray",
+								"style": "round"
+							},
+							"url": "https://pdfcpu.io"
+						}
+					]
+				}
+			}
 		}
 	]
 }

@@ -134,6 +134,10 @@ func ensureInfoDict(ctx *model.Context) error {
 
 		ctx.Info = ir
 
+		if ctx.Write.Increment {
+			ctx.Write.IncrementWithObjNr((*ctx.Info).ObjectNumber.Value())
+		}
+
 		return nil
 	}
 
@@ -149,6 +153,10 @@ func ensureInfoDict(ctx *model.Context) error {
 	d.Update("CreationDate", types.StringLiteral(now))
 	d.Update("ModDate", types.StringLiteral(now))
 	d.Update("Producer", types.StringLiteral(v))
+
+	if ctx.Write.Increment {
+		ctx.Write.IncrementWithObjNr((*ctx.Info).ObjectNumber.Value())
+	}
 
 	return nil
 }

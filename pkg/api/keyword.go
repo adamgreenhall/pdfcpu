@@ -21,12 +21,15 @@ import (
 	"os"
 
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/fault"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pkg/errors"
 )
 
 // Keywords returns the keywords of rs's info dict.
-func Keywords(rs io.ReadSeeker, conf *model.Configuration) ([]string, error) {
+func Keywords(rs io.ReadSeeker, conf *model.Configuration) (ss []string, err error) {
+	defer fault.Catch(&err)
+
 	if rs == nil {
 		return nil, errors.New("pdfcpu: ListKeywords: missing rs")
 	}
@@ -47,7 +50,9 @@ func Keywords(rs io.ReadSeeker, conf *model.Configuration) ([]string, error) {
 }
 
 // AddKeywords adds keywords to rs's infodict and writes the result to w.
-func AddKeywords(rs io.ReadSeeker, w io.Writer, files []string, conf *model.Configuration) error {
+func AddKeywords(rs io.ReadSeeker, w io.Writer, files []string, conf *model.Configuration) (err error) {
+	defer fault.Catch(&err)
+
 	if rs == nil {
 		return errors.New("pdfcpu: AddKeywords: missing rs")
 	}
@@ -74,6 +79,7 @@ func AddKeywords(rs io.ReadSeeker, w io.Writer, files []string, conf *model.Conf
 // AddKeywordsFile adds keywords to inFile's infodict and writes the result to outFile.
 func AddKeywordsFile(inFile, outFile string, files []string, conf *model.Configuration) (err error) {
 	var f1, f2 *os.File
+	ok := false
 
 	if f1, err = os.Open(inFile); err != nil {
 		return err
@@ -84,14 +90,14 @@ func AddKeywordsFile(inFile, outFile string, files []string, conf *model.Configu
 		tmpFile = outFile
 	}
 	if f2, err = os.Create(tmpFile); err != nil {
-		f1.Close()
+		_ = f1.Close()
 		return err
 	}
 
 	defer func() {
-		if err != nil {
-			f2.Close()
-			f1.Close()
+		if !ok {
+			_ = f2.Close()
+			_ = f1.Close()
 			os.Remove(tmpFile)
 			return
 		}
@@ -106,11 +112,19 @@ func AddKeywordsFile(inFile, outFile string, files []string, conf *model.Configu
 		}
 	}()
 
-	return AddKeywords(f1, f2, files, conf)
+	if err = AddKeywords(f1, f2, files, conf); err != nil {
+		return err
+	}
+
+	ok = true
+
+	return nil
 }
 
 // RemoveKeywords deletes keywords from rs's infodict and writes the result to w.
-func RemoveKeywords(rs io.ReadSeeker, w io.Writer, keywords []string, conf *model.Configuration) error {
+func RemoveKeywords(rs io.ReadSeeker, w io.Writer, keywords []string, conf *model.Configuration) (err error) {
+	defer fault.Catch(&err)
+
 	if rs == nil {
 		return errors.New("pdfcpu: RemoveKeywords: missing rs")
 	}
@@ -141,6 +155,7 @@ func RemoveKeywords(rs io.ReadSeeker, w io.Writer, keywords []string, conf *mode
 // RemoveKeywordsFile deletes keywords from inFile's infodict and writes the result to outFile.
 func RemoveKeywordsFile(inFile, outFile string, keywords []string, conf *model.Configuration) (err error) {
 	var f1, f2 *os.File
+	ok := false
 
 	if f1, err = os.Open(inFile); err != nil {
 		return err
@@ -151,14 +166,14 @@ func RemoveKeywordsFile(inFile, outFile string, keywords []string, conf *model.C
 		tmpFile = outFile
 	}
 	if f2, err = os.Create(tmpFile); err != nil {
-		f1.Close()
+		_ = f1.Close()
 		return err
 	}
 
 	defer func() {
-		if err != nil {
-			f2.Close()
-			f1.Close()
+		if !ok {
+			_ = f2.Close()
+			_ = f1.Close()
 			os.Remove(tmpFile)
 			return
 		}
@@ -173,5 +188,11 @@ func RemoveKeywordsFile(inFile, outFile string, keywords []string, conf *model.C
 		}
 	}()
 
-	return RemoveKeywords(f1, f2, keywords, conf)
+	if err = RemoveKeywords(f1, f2, keywords, conf); err != nil {
+		return err
+	}
+
+	ok = true
+
+	return nil
 }

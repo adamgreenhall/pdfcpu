@@ -101,7 +101,7 @@ func XRefTable(ctx *model.Context) error {
 
 func fixInfoDict(xRefTable *model.XRefTable, rootDict types.Dict) error {
 	indRef := rootDict.IndirectRefEntry("Metadata")
-	ok, err := model.EqualObjects(*indRef, *xRefTable.Info, xRefTable)
+	ok, err := model.EqualObjects(*indRef, *xRefTable.Info, xRefTable, nil)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func metaDataModifiedAfterInfoDict(xRefTable *model.XRefTable) (bool, error) {
 
 	//fmt.Printf("infoDict: %s metaData: %s\n", modTimestampInfoDict, modTimestampMetaData)
 
-	if *modTimestampInfoDict == modTimestampMetaData {
+	if (*modTimestampInfoDict).Equal(modTimestampMetaData) {
 		return false, nil
 	}
 
@@ -275,7 +275,7 @@ func validatePageLabels(xRefTable *model.XRefTable, rootDict types.Dict, require
 		return err
 	}
 
-	_, _, err = validateNumberTree(xRefTable, "PageLabel", d, true)
+	_, _, err = validateNumberTree(xRefTable, "PageLabel", d, true, false)
 
 	return err
 }

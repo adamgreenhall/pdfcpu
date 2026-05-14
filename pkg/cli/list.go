@@ -547,19 +547,17 @@ func ListBookmarksFile(inFile string, conf *model.Configuration) ([]string, erro
 	return listBookmarks(f, conf)
 }
 
-func listPEM(fName string) (int, error) {
+func listPEM(fName string, ss *[]string) (int, error) {
 	bb, err := os.ReadFile(fName)
 	if err != nil {
-		fmt.Printf("%v\n", err)
 		return 0, err
 	}
 
 	if len(bb) == 0 {
-		//return 0, errors.Errorf("%s is empty\n", filepath.Base(fName))
 		return 0, errors.New("is empty\n")
 	}
 
-	ss := []string{}
+	ss1 := []string{}
 	for len(bb) > 0 {
 		var block *pem.Block
 		block, bb = pem.Decode(bb)
@@ -573,72 +571,61 @@ func listPEM(fName string) (int, error) {
 		certBytes := block.Bytes
 		cert, err := x509.ParseCertificate(certBytes)
 		if err != nil {
-			fmt.Printf("%v\n", err)
+			ss1 = append(ss1, fmt.Sprintf("%v\n", err))
 			continue
 		}
-		ss = append(ss, model.CertString(cert))
+		*ss = append(*ss, model.CertString(cert))
 	}
 
-	sort.Strings(ss)
-	for i, s := range ss {
-		fmt.Printf("%03d:\n%s\n", i+1, s)
+	sort.Strings(ss1)
+	for i, s := range ss1 {
+		*ss = append(*ss, fmt.Sprintf("%03d:\n%s", i+1, s))
 	}
 
-	return len(ss), nil
+	return len(ss1), nil
 }
 
-func listP7C(fName string) (int, error) {
+func listP7C(fName string, ss *[]string) (int, error) {
 	bb, err := os.ReadFile(fName)
 	if err != nil {
-		fmt.Printf("%v\n", err)
 		return 0, err
 	}
 
 	if len(bb) == 0 {
-		//return 0, errors.Errorf("%s is empty\n", filepath.Base(fName))
 		return 0, errors.New("is empty\n")
 	}
-
-	// // Check if the data starts with PEM markers (for Base64 encoding)
-	// if isPEM(data) {
-	// 	// If the file is Base64 encoded (PEM format), decode it
-	// 	decodedData, err := base64.StdEncoding.DecodeString(string(data))
-	// 	if err != nil {
-	// 		log.Fatalf("Error decoding Base64: %v", err)
-	// 	}
-	// 	data = decodedData
-	// }
 
 	p7, err := pkcs7.Parse(bb)
 	if err != nil {
 		return 0, err
 	}
 
-	ss := []string{}
+	ss1 := []string{}
 	for _, cert := range p7.Certificates {
-		ss = append(ss, model.CertString(cert))
+		ss1 = append(ss1, model.CertString(cert))
 	}
 
-	sort.Strings(ss)
-	for i, s := range ss {
-		fmt.Printf("%03d:\n%s\n", i+1, s)
+	sort.Strings(ss1)
+	for i, s := range ss1 {
+		*ss = append(*ss, fmt.Sprintf("%03d:\n%s", i+1, s))
 	}
 
-	return len(ss), nil
+	return len(ss1), nil
 }
 
 // ListCertificatesAll returns formatted information about installed certificates.
 func ListCertificatesAll(json bool, conf *model.Configuration) ([]string, error) {
 	// Process *.pem and *.p7c
-	fmt.Printf("certDir: %s\n", model.CertDir)
 
-	if err := os.MkdirAll(model.CertDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(model.TrustedCertDir, os.ModePerm); err != nil {
 		return nil, err
 	}
 
 	count := 0
 
-	err := filepath.WalkDir(model.CertDir, func(path string, d os.DirEntry, err error) error {
+	var ss []string
+
+	err := filepath.WalkDir(model.TrustedCertDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -649,25 +636,26 @@ func ListCertificatesAll(json bool, conf *model.Configuration) ([]string, error)
 			return nil
 		}
 
-		fmt.Printf("\n%s:\n", strings.TrimPrefix(path, model.CertDir))
+		ss = append(ss, fmt.Sprintf("%s:\n", strings.TrimPrefix(path, model.TrustedCertDir)))
 
 		if model.IsPEM(path) {
-			c, err := listPEM(path)
+			c, err := listPEM(path, &ss)
 			if err != nil {
-				fmt.Printf("%v\n", err)
+				ss = append(ss, fmt.Sprintf("%v\n", err))
 			}
 			count += c
 			return nil
 		}
-		c, err := listP7C(path)
+		c, err := listP7C(path, &ss)
 		if err != nil {
-			fmt.Printf("%v\n", err)
+			ss = append(ss, fmt.Sprintf("%v\n", err))
 		}
 		count += c
 		return nil
 	})
 
-	fmt.Printf("total installed certs: %d\n", count)
+	ss = append(ss, fmt.Sprintf("trustedCertDir: %s", model.TrustedCertDir))
+	ss = append(ss, fmt.Sprintf("total installed certs: %d", count))
 
-	return nil, err
+	return ss, err
 }

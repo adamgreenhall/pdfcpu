@@ -54,7 +54,7 @@ func doAddCertificatesToCertPool(path string, certPool *x509.CertPool, n *int) e
 
 func addCertificatesToCertPool() error {
 	// fmt.Println("*** loading certificates ***")
-	dir := model.CertDir
+	dir := model.TrustedCertDir
 	certPool := x509.NewCertPool()
 	n := 0
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
@@ -219,7 +219,7 @@ func saveCertsAsP7C(certs []*x509.Certificate, filename string, overwrite bool) 
 		return false, errors.New("no certificates to save")
 	}
 
-	p7, err := pkcs7.NewSignedData(nil)
+	p7, err := pkcs7.NewSignedData()
 	if err != nil {
 		return false, err
 	}
@@ -249,7 +249,7 @@ func ImportCertificate(inFile string, overwrite bool) (int, bool, error) {
 	base := filepath.Base(inFile)
 	outFileNoExt := base[:len(base)-len(filepath.Ext(base))]
 	outFile := outFileNoExt + ".p7c"
-	outFile = filepath.Join(model.CertDir, outFile)
+	outFile = filepath.Join(model.TrustedCertDir, outFile)
 
 	if enforceP7C {
 		// Write certs as .p7c to certDir.

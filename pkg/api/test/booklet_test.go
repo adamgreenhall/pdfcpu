@@ -17,11 +17,14 @@ limitations under the License.
 package test
 
 import (
+	"log"
 	"path/filepath"
 	"testing"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 )
 
 func testBooklet(t *testing.T, msg string, inFiles []string, outFile string, selectedPages []string, desc string, n int, isImg bool, conf *model.Configuration) {
@@ -314,5 +317,43 @@ func TestBooklet(t *testing.T) {
 			conf.SetUnit(tt.unit)
 			testBooklet(subTest, tt.msg, tt.inFiles, tt.outFile, tt.selectedPages, tt.desc, tt.n, tt.isImg, conf)
 		})
+	}
+}
+
+func TestBookletResize(t *testing.T) {
+	ctx, err := api.ReadContextFile(filepath.Join(inDir, "zineTest.pdf"))
+	if err != nil {
+		log.Fatal(t, err)
+	}
+	nup, err := api.PDFBookletConfig(4, "p:A4", nil)
+	if err != nil {
+		log.Fatal(t, err)
+	}
+	selectedPages, err := api.PagesForPageSelection(ctx.PageCount, nil, true, true)
+	if err != nil {
+		log.Fatal(t, err)
+	}
+	if err = pdfcpu.BookletFromPDF(ctx, selectedPages, nup); err != nil {
+		log.Fatal(t, err)
+	}
+
+	// if err = api.WriteContextFile(ctx, filepath.Join(samplesDir, "booklet", "bookletResized.before.pdf")); err != nil {
+	// 	log.Fatal(t, err)
+	// }
+
+	// ctx.ResetWriteContext()
+
+	if err = pdfcpu.Resize(ctx, nil, &model.Resize{PageDim: types.PaperSize["A5"]}); err != nil {
+		log.Fatal(t, err)
+	}
+
+	outFile := filepath.Join(samplesDir, "booklet", "bookletResized.pdf")
+
+	if err = api.WriteContextFile(ctx, outFile); err != nil {
+		log.Fatal(t, err)
+	}
+
+	if err = api.ValidateFile(outFile, nil); err != nil {
+		log.Fatal(t, err)
 	}
 }

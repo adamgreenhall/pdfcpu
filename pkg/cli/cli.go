@@ -460,3 +460,8 @@ func InspectCertificates(cmd *Command) ([]string, error) {
 func ValidateSignatures(cmd *Command) ([]string, error) {
 	return api.ValidateSignaturesFile(*cmd.InFile, cmd.BoolVal1, cmd.BoolVal2, cmd.Conf)
 }
+
+// RemoveSignatures removes contained digital signatures.
+func RemoveSignatures(cmd *Command) ([]string, error) {
+	return nil, api.RemoveSignaturesFile(*cmd.InFile, *cmd.OutFile, cmd.Conf)
+}

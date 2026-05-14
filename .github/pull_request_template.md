@@ -6,6 +6,8 @@
 
 3. Issue discussion will determine further steps like whether a PR is needed or not. 
 
-3. Please provide enough information for PR review.
+4. Please provide enough information for PR review.
+
+5. AI generated PRs will be rejected. 
 
 4. Fixes # ?

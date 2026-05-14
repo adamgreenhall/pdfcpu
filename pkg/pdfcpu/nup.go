@@ -584,7 +584,15 @@ func wrapUpPage(ctx *model.Context, nup *model.NUp, d types.Dict, buf bytes.Buff
 		return err
 	}
 
-	sd, _ := xRefTable.NewStreamDictForBuf(buf.Bytes())
+	bb := buf.Bytes()
+	bbCopy := make([]byte, len(bb))
+	copy(bbCopy, bb)
+
+	sd, err := xRefTable.NewStreamDictForBuf(bbCopy)
+	if err != nil {
+		return err
+	}
+
 	if err = sd.Encode(); err != nil {
 		return err
 	}
@@ -619,8 +627,6 @@ func wrapUpPage(ctx *model.Context, nup *model.NUp, d types.Dict, buf bytes.Buff
 	if err = model.AppendPageTree(indRef, 1, pagesDict); err != nil {
 		return err
 	}
-
-	ctx.PageCount++
 
 	return nil
 }

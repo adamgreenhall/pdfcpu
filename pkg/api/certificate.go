@@ -20,13 +20,15 @@ import (
 	"fmt"
 
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/fault"
 )
 
 // ImportCertificates validates and installs found certificate files to pdfcpu config dir.
-func ImportCertificates(inFiles []string) ([]string, error) {
+func ImportCertificates(inFiles []string) (ss []string, err error) {
+	defer fault.Catch(&err)
+
 	count := 0
 	overwrite := true
-	ss := []string{}
 	for _, inFile := range inFiles {
 		n, ok, err := pdfcpu.ImportCertificate(inFile, overwrite)
 		if err != nil {
@@ -45,9 +47,10 @@ func ImportCertificates(inFiles []string) ([]string, error) {
 }
 
 // InspectCertificates loads and inspects certs from indFiles.
-func InspectCertificates(inFiles []string) ([]string, error) {
+func InspectCertificates(inFiles []string) (ss []string, err error) {
+	defer fault.Catch(&err)
+
 	count := 0
-	ss := []string{}
 
 	for _, inFile := range inFiles {
 

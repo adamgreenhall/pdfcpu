@@ -827,7 +827,6 @@ func pageAnnotIndRefForAcroField(xRefTable *model.XRefTable, indRef types.Indire
 	}
 
 	return &indRef, nil
-	//return nil, errors.Errorf("pdfcpu: can't repair form field: %d\n", indRef.ObjectNumber.Value())
 }
 
 func fixFormFieldsArray(xRefTable *model.XRefTable, arr types.Array) (types.Array, error) {

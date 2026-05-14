@@ -50,7 +50,7 @@ type XRefTableEntry struct {
 	Free            bool
 	Offset          *int64
 	Generation      *int
-	Incr            int
+	Incr            int // TODO
 	RefCount        int
 	Object          types.Object
 	Compressed      bool
@@ -153,9 +153,9 @@ type XRefTable struct {
 
 	Signatures        map[int]map[int]Signature // form signatures and signatures located via page annotations only keyed by increment #.
 	URSignature       types.Dict                // usage rights signature
-	CertifiedSigObjNr int                       // authoritative signature
-	DSS               types.Dict                // document security store, currently unsupported
-	DTS               time.Time                 // trusted digital timestamp
+	CertifiedSigObjNr int                       //
+	DSS               types.Dict                // document security store
+	DTS               time.Time                 // trusted document timestamp
 
 	// Offspec section
 	AdditionalStreams *types.Array // array of IndirectRef - trailer :e.g., Oasis "Open Doc"
@@ -219,6 +219,10 @@ func (xRefTable *XRefTable) Version() Version {
 	}
 
 	return *xRefTable.HeaderVersion
+}
+
+func (xRefTable *XRefTable) PDF20() bool {
+	return xRefTable.Version() == V20
 }
 
 // VersionString return a string representation for this PDF files PDF version.
@@ -2850,6 +2854,7 @@ func (xRefTable *XRefTable) NameRef(nameType string) NameMap {
 }
 
 func (xRefTable *XRefTable) RemoveSignature() {
+	// TODO Cleanup
 	if xRefTable.SignatureExist || xRefTable.AppendOnly {
 		// TODO enable incremental writing
 		if log.CLIEnabled() {
@@ -2952,7 +2957,7 @@ func removeSigAnnot(xRefTable *XRefTable, indRef types.IndirectRef, d types.Dict
 	return nil
 }
 
-func (xRefTable *XRefTable) RemoveSignatures() error {
+func (xRefTable *XRefTable) RemoveAllSignatures() error {
 	d := xRefTable.RootDict
 	delete(d, "DSS")
 	delete(d, "Legal")
@@ -3010,7 +3015,7 @@ func (xRefTable *XRefTable) RemoveSignatures() error {
 		return nil
 	}
 
-	xRefTable.Form["Fields"] = arr // TODO need indRef?
+	xRefTable.Form["Fields"] = arr
 	delete(xRefTable.Form, "SigFlags")
 
 	return nil

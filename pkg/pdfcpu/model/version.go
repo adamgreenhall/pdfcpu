@@ -26,7 +26,7 @@ import (
 
 // VersionStr is the current pdfcpu version.
 var ProducerStr = "pdfcpu"
-var VersionStr = "v0.11.1 dev"
+var VersionStr = "v0.12.1 dev"
 
 // Version is a type for the internal representation of PDF versions.
 type Version int

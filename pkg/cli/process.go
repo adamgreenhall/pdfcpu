@@ -301,6 +301,9 @@ func processSignatures(cmd *Command) (out []string, err error) {
 
 	case model.VALIDATESIGNATURES:
 		return ValidateSignatures(cmd)
+
+	case model.REMOVESIGNATURES:
+		return RemoveSignatures(cmd)
 	}
 
 	return nil, nil

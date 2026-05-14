@@ -39,8 +39,7 @@ func TestValidateSignature_X509_RSA_SHA1(t *testing.T) {
 	for _, fn := range AllPDFs(t, dir) {
 		inFile := filepath.Join(dir, fn)
 		fmt.Println("\nvalidate signatures of " + inFile)
-		all := true
-		full := false
+		all, full := true, true
 		ss, err := api.ValidateSignaturesFile(inFile, all, full, conf)
 		if err != nil {
 			t.Fatalf("%s: %v\n", msg, err)
@@ -58,8 +57,7 @@ func TestValidateSignature_PKCS7_SHA1(t *testing.T) {
 	for _, fn := range AllPDFs(t, dir) {
 		inFile := filepath.Join(dir, fn)
 		fmt.Println("validate signatures of " + inFile)
-		all := true
-		full := false
+		all, full := true, true
 		ss, err := api.ValidateSignaturesFile(inFile, all, full, conf)
 		if err != nil {
 			t.Fatalf("%s: %v\n", msg, err)
@@ -77,8 +75,7 @@ func TestValidateSignature_PKCS7_Detached(t *testing.T) {
 	for _, fn := range AllPDFs(t, dir) {
 		inFile := filepath.Join(dir, fn)
 		fmt.Println("\nvalidate signatures of " + inFile)
-		all := true
-		full := true
+		all, full := false, true
 		ss, err := api.ValidateSignaturesFile(inFile, all, full, conf)
 		if err != nil {
 			t.Fatalf("%s: %v\n", msg, err)
@@ -96,12 +93,25 @@ func TestValidateSignature_ETSI_CAdES_Detached(t *testing.T) {
 	for _, fn := range AllPDFs(t, dir) {
 		inFile := filepath.Join(dir, fn)
 		fmt.Println("\nvalidate signatures of " + inFile)
-		all := true
-		full := true
+		all, full := true, true
 		ss, err := api.ValidateSignaturesFile(inFile, all, full, conf)
 		if err != nil {
 			t.Fatalf("%s: %v\n", msg, err)
 		}
 		logResults(ss)
+	}
+}
+
+func TestRemoveSignatures(t *testing.T) {
+	msg := "TestRemoveSignatures"
+
+	inDir := filepath.Join(samplesDir, "signatures", "ETSI.CAdES.detached")
+	inFile := filepath.Join(inDir, "testPAdES_BB.pdf")
+	outFile := filepath.Join(outDir, "testPAdES_BB_noSigs.pdf")
+
+	//conf := model.NewDefaultConfiguration()
+	//conf.RemoveEncryption = true
+	if err := api.RemoveSignaturesFile(inFile, outFile, nil); err != nil {
+		t.Fatalf("%s: %v\n", msg, err)
 	}
 }
