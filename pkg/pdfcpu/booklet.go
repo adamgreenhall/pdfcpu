@@ -468,10 +468,13 @@ func bookletPages(
 	pagesDict types.Dict,
 	pagesIndRef *types.IndirectRef,
 	ordering orderingFn,
+	rr []*types.Rectangle,
 ) (int, error) {
 	var buf bytes.Buffer
 	formsResDict := types.NewDict()
-	rr := nup.RectsForGrid()
+	if rr == nil {
+		rr = nup.RectsForGrid()
+	}
 	j := 0
 
 	for i, bp := range GetBookletOrdering(selectedPages, nup, ordering) {
@@ -612,7 +615,7 @@ func BookletFromPDF(ctx *model.Context, selectedPages types.IntSet, nup *model.N
 
 	nup.PageDim = &types.Dim{Width: mb.Width(), Height: mb.Height()}
 
-	pageCount, err := bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef, nil)
+	pageCount, err := bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -631,7 +634,7 @@ func BookletFromPDF(ctx *model.Context, selectedPages types.IntSet, nup *model.N
 }
 
 // BookletFromPDF creates a booklet version of the PDF represented by xRefTable.
-func BookletFromPdfWithOrdering(ctx *model.Context, selectedPages types.IntSet, nup *model.NUp, ordering orderingFn) error {
+func BookletFromPdfWithOrdering(ctx *model.Context, selectedPages types.IntSet, nup *model.NUp, ordering orderingFn, gridRects []*types.Rectangle) error {
 	var mb *types.Rectangle
 	if nup.PageDim == nil {
 		nup.PageDim = types.PaperSize[nup.PageSize]
@@ -653,7 +656,7 @@ func BookletFromPdfWithOrdering(ctx *model.Context, selectedPages types.IntSet, 
 
 	nup.PageDim = &types.Dim{Width: mb.Width(), Height: mb.Height()}
 
-	pageCount, err := bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef, ordering)
+	pageCount, err := bookletPages(ctx, selectedPages, nup, pagesDict, pagesIndRef, ordering, gridRects)
 	if err != nil {
 		return err
 	}
