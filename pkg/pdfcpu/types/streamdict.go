@@ -409,7 +409,7 @@ func (sd *StreamDict) DecodeLength(maxLen int64) ([]byte, error) {
 	fpl := sd.FilterPipeline
 
 	// No filter or sole filter DTC && !CMYK or JPX - nothing to decode.
-	if fpl == nil || len(fpl) == 1 && ((fpl[0].Name == filter.DCT && sd.CSComponents != 4) || fpl[0].Name == filter.JPX) {
+	if len(fpl) == 0 || len(fpl) == 1 && ((fpl[0].Name == filter.DCT && sd.CSComponents != 4) || fpl[0].Name == filter.JPX) {
 		sd.Content = sd.Raw
 		//fmt.Printf("decodedStream returning %d(#%02x)bytes: \n%s\n", len(sd.Content), len(sd.Content), hex.Dump(sd.Content))
 		if maxLen < 0 {
