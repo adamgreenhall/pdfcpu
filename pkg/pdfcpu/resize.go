@@ -265,6 +265,13 @@ type ResizeParamsPage struct {
 	Dx, Dy     float64
 }
 
+func (r *ResizeParams) getAnchor(pgNum int) types.Anchor {
+	if rp, ok := r.PerPageParams[pgNum]; ok {
+		return rp.Anchor
+	}
+	return r.Anchor
+}
+
 func ResizeOntoPage(ctx *model.Context, res ResizeParams, selectedPages types.IntSet) error {
 	if res.ContentDim.Width > res.PageDim.Width || res.ContentDim.Height > res.PageDim.Height {
 		return fmt.Errorf("content dimensions must be less than page dimesions")
@@ -332,9 +339,6 @@ func resizeOntoPage(ctx *model.Context, pageNr int, res ResizeParams) error {
 	bb = append(trans.Bytes(), bb...)
 	bb = append(bb, []byte(" Q")...)
 
-	cropBox.UR.X = cropBox.LL.X + r.Width()
-	cropBox.UR.Y = cropBox.LL.Y + r.Height()
-
 	sd, _ := ctx.NewStreamDictForBuf(bb)
 	if err := sd.Encode(); err != nil {
 		return err
@@ -347,10 +351,18 @@ func resizeOntoPage(ctx *model.Context, pageNr int, res ResizeParams) error {
 
 	d["Contents"] = *ir
 
-	d.Update("MediaBox", cropBox.Array())
+	mb := r
+	if cropBox.LL.X != 0 || cropBox.LL.Y != 0 {
+		llx := cropBox.LL.X * sc
+		lly := cropBox.LL.Y * sc
+		if res.getAnchor(pageNr) == types.TopCenter {
+			lly += dy // special case for top anchor
+		}
+		mb = types.RectForWidthAndHeight(llx, lly, r.Width(), r.Height())
+	}
+	d.Update("MediaBox", mb.Array())
 	d.Delete("Rotate")
 	d.Delete("CropBox")
-
 	return nil
 }
 
